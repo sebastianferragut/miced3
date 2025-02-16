@@ -1,193 +1,236 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 
-// Global variables for processed data
-let maleTempAverages, maleActAverages, femTempAverages, femActAverages;
-let currentGender = "male"; // default selection
+let allMiceData = [];
+let currentView = "all";
+let globalYDomain = [0, 0];
+const margin = { top: 30, right: 30, bottom: 50, left: 60 };
+const width = 1200 - margin.left - margin.right;
+const height = 600 - margin.top - margin.bottom;
+let svg, xScale, yScale, xAxis, yAxis;
+const tooltip = d3.select("#tooltip");
+const LIGHTS_OFF_COLOR = "rgba(0, 0, 0, 0.1)";
+const LIGHTS_CYCLE = 720;
 
-// Global variables for chart dimensions and container
-const margin = { top: 20, right: 20, bottom: 50, left: 60 };
-const width = 800 - margin.left - margin.right;
-const height = 400 - margin.top - margin.bottom;
-
-let svg;      // will hold the SVG container
-let xScale, yScale; // global scales
-
-// File names in the /data folder
-const files = [
-  "data/male_temp.csv",
-  "data/male_act.csv",
-  "data/fem_temp.csv",
-  "data/fem_act.csv"
-];
-
-// Row conversion function for d3.csv: converts every value to a number
-// and adds a minuteIndex property (absolute minute from 0 to 20159)
-const rowConverter = (d, i) => {
-  const newObj = {};
-  for (let key in d) {
-    newObj[key] = +d[key];
-  }
-  newObj.minuteIndex = i;
-  return newObj;
-};
-
-// ----------------------------------------------------------------
-// LOAD DATA
-// ----------------------------------------------------------------
 async function loadData() {
-  // Load all CSV files in parallel using our rowConverter
-  const [maleTemp, maleAct, femTemp, femAct] = await Promise.all(
-    files.map(file => d3.csv(file, rowConverter))
-  );
+    const [maleTemp, femTemp] = await Promise.all([
+        d3.csv("data/male_temp.csv", rowConverter),
+        d3.csv("data/fem_temp.csv", rowConverter)
+    ]);
 
-  console.log("Male Temp Data:", maleTemp);
-  console.log("Male Act Data:", maleAct);
-  console.log("Female Temp Data:", femTemp);
-  console.log("Female Act Data:", femAct);
+    allMiceData = [
+        ...processMiceData(maleTemp, "male"),
+        ...processMiceData(femTemp, "female")
+    ];
 
-  // Process each dataset into averages per minute-of-day
-  function processDataset(dataset) {
-    // Get mouse IDs from the first row (excluding minuteIndex)
-    const mouseIDs = Object.keys(dataset[0]).filter(key => key !== "minuteIndex");
-
-    // Initialize an accumulator for each mouse (an array of 1440 zeros)
-    const accumulators = {};
-    mouseIDs.forEach(id => {
-      accumulators[id] = new Array(1440).fill(0);
-    });
-
-    // For each row (each absolute minute), add the value to the correct minute-of-day bucket
-    dataset.forEach(row => {
-      const minuteOfDay = row.minuteIndex % 1440;
-      mouseIDs.forEach(id => {
-        accumulators[id][minuteOfDay] += row[id];
-      });
-    });
-
-    // Since the data spans 14 days, each minute-of-day appears 14 times
-    const numDays = dataset.length / 1440; // should be 14
-    const averages = {};
-    mouseIDs.forEach(id => {
-      averages[id] = accumulators[id].map(sum => sum / numDays);
-    });
-    return averages;
-  }
-
-  // Process and assign datasets to global variables
-  maleTempAverages = processDataset(maleTemp);
-  maleActAverages  = processDataset(maleAct);
-  femTempAverages  = processDataset(femTemp);
-  femActAverages   = processDataset(femAct);
-
-  console.log("Male Temperature Averages:", maleTempAverages);
-  console.log("Male Activity Averages:", maleActAverages);
-  console.log("Female Temperature Averages:", femTempAverages);
-  console.log("Female Activity Averages:", femActAverages);
+    // Calculate global Y-axis domain
+    const allValues = allMiceData.flatMap(d => d.data);
+    globalYDomain = [d3.min(allValues), d3.max(allValues)];
+    
+    initializeChart();
+    updateChart();
 }
 
-// ----------------------------------------------------------------
-// INITIALIZE CHART CONTAINER & SCALES
-// ----------------------------------------------------------------
+function rowConverter(d) {
+    const converted = {};
+    Object.keys(d).forEach(key => converted[key] = +d[key]);
+    return converted;
+}
+
+function processMiceData(dataset, gender) {
+    const miceIDs = Object.keys(dataset[0]).filter(k => k !== "minuteIndex");
+    
+    return miceIDs.flatMap(mouseID => {
+        // Initialize accumulators
+        const estrusData = new Array(1440).fill(0);
+        const nonEstrusData = new Array(1440).fill(0);
+        let estrusDays = 0;
+        let nonEstrusDays = 0;
+
+        dataset.forEach((row, idx) => {
+            const day = Math.floor(idx / 1440) + 1;
+            const minute = idx % 1440;
+            const isEstrus = (gender === "female") && ((day - 2) % 4 === 0);
+
+            if (isEstrus) {
+                estrusData[minute] += row[mouseID];
+                if (minute === 0) estrusDays++;
+            } else {
+                nonEstrusData[minute] += row[mouseID];
+                if (minute === 0 && gender === "female") nonEstrusDays++;
+            }
+        });
+
+        // Create entries
+        const entries = [];
+        
+        // For females: create both estrus and non-estrus lines
+        if (gender === "female") {
+            if (estrusDays > 0) {
+                entries.push({
+                    id: mouseID,
+                    gender,
+                    type: "estrus",
+                    data: estrusData.map(v => v / estrusDays)
+                });
+            }
+            if (nonEstrusDays > 0) {
+                entries.push({
+                    id: mouseID,
+                    gender,
+                    type: "non-estrus",
+                    data: nonEstrusData.map(v => v / nonEstrusDays)
+                });
+            }
+        } 
+        // For males: single entry
+        else {
+            entries.push({
+                id: mouseID,
+                gender,
+                type: "male",
+                data: nonEstrusData.map(v => v / 14) // Use all days
+            });
+        }
+
+        return entries;
+    });
+}
+
 function initializeChart() {
-  // Create the SVG container and group element
-  svg = d3.select("#visualization")
-    .append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-    .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+    svg = d3.select("#chart-container")
+        .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
 
-  // Set up the x-scale: minutes-of-day (0 to 1439)
-  xScale = d3.scaleLinear()
-    .domain([0, 1439])
-    .range([0, width]);
+    // Create time scale
+    xScale = d3.scaleTime()
+        .domain([new Date(2023, 0, 1), new Date(2023, 0, 1, 23, 59)])
+        .range([0, width]);
 
-  // yScale will be set/updated in updateChart() based on the selected data
-  yScale = d3.scaleLinear().range([height, 0]);
+    // Create linear scale with padding
+    yScale = d3.scaleLinear()
+        .domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02])
+        .range([height, 0]);
 
-  // Draw the chart for the first time
-  updateChart();
+    // Add light/dark background
+    const startTime = new Date(2023, 0, 1);
+    [0, 1].forEach(i => {
+        const start = new Date(startTime.getTime() + i * LIGHTS_CYCLE * 60000);
+        const end = new Date(start.getTime() + LIGHTS_CYCLE * 60000);
+        
+        svg.append("rect")
+            .attr("x", xScale(start))
+            .attr("width", xScale(end) - xScale(start))
+            .attr("height", height)
+            .attr("fill", i % 2 === 0 ? LIGHTS_OFF_COLOR : "none");
+    });
+
+    // Add axes
+    xAxis = svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(xScale)
+            .ticks(d3.timeHour.every(3))
+            .tickFormat(d3.timeFormat("%-I %p")));
+
+    yAxis = svg.append("g")
+        .call(d3.axisLeft(yScale));
+
+    // Y-axis label
+    svg.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -margin.left + 15)
+        .attr("x", -height/2)
+        .style("text-anchor", "middle")
+        .text("Temperature (°C)");
 }
 
-// ----------------------------------------------------------------
-// UPDATE CHART BASED ON SELECTION
-// ----------------------------------------------------------------
 function updateChart() {
-  // Clear any existing chart elements
-  svg.selectAll("*").remove();
+    const filteredData = allMiceData.filter(d => 
+        currentView === "all" || d.gender === currentView
+    );
 
-  // Select the appropriate dataset based on currentGender
-  // Here we use the "activity" averages (maleActAverages or femActAverages)
-  const selectedData = currentGender === "male" ? maleActAverages : femActAverages;
+    // Line generator
+    const line = d3.line()
+        .x((_, i) => xScale(new Date(2023, 0, 1, 0, i)))
+        .y(d => yScale(d))
+        .curve(d3.curveMonotoneX);
 
-  // Update the y-scale domain: compute global min/max for the selected dataset
-  const allValues = [];
-  Object.values(selectedData).forEach(arr => {
-    allValues.push(...arr);
-  });
-  const yExtent = d3.extent(allValues);
-  yScale.domain(yExtent);
+    // Data join
+    const lines = svg.selectAll(".mouse-line")
+        .data(filteredData, d => `${d.id}-${d.type}`);
 
-  // Create and add the x-axis
-  const xAxis = d3.axisBottom(xScale).ticks(10);
-  svg.append("g")
-    .attr("transform", `translate(0,${height})`)
-    .call(xAxis);
+    // Enter + update
+    lines.enter()
+        .append("path")
+            .attr("class", "mouse-line")
+            .merge(lines)
+            .attr("d", d => line(d.data))
+            .attr("fill", "none")
+            .attr("stroke", d => {
+                if (d.gender === "male") return "#3690c0"; // Blue for males
+                return d.type === "estrus" ? "#ff0000" : "#ffa500"; // Red/Orange for females
+            })
+            .attr("stroke-width", 1.5)
+            .attr("opacity", 0.7)
+            .on("mouseover", showTooltip)
+            .on("mousemove", moveTooltip)
+            .on("mouseout", hideTooltip);
 
-  // Create and add the y-axis
-  const yAxis = d3.axisLeft(yScale);
-  svg.append("g")
-    .call(yAxis);
-
-  // Add axis labels
-  svg.append("text")
-    .attr("x", width / 2)
-    .attr("y", height + margin.bottom - 10)
-    .style("text-anchor", "middle")
-    .text("Minute of Day");
-
-  svg.append("text")
-    .attr("transform", "rotate(-90)")
-    .attr("x", -height / 2)
-    .attr("y", -margin.left + 15)
-    .style("text-anchor", "middle")
-    .text("Average Activity");
-
-  // Create a line generator function
-  const lineGenerator = d3.line()
-    .x((d, i) => xScale(i))
-    .y(d => yScale(d));
-
-  // Plot one line per mouse
-  Object.keys(selectedData).forEach(mouseID => {
-    svg.append("path")
-      .datum(selectedData[mouseID])
-      .attr("fill", "none")
-      .attr("stroke", currentGender === "male" ? "steelblue" : "crimson")
-      .attr("stroke-width", 1)
-      .attr("d", lineGenerator)
-      .attr("class", "line")
-      .attr("data-mouse", mouseID)
-      .on("click", () => {
-         console.log("Clicked on mouse:", mouseID);
-      });
-  });
+    // Exit
+    lines.exit().remove();
 }
 
-// ----------------------------------------------------------------
-// INITIALIZE: Load Data, Set Up Chart, and Add Button Functionality
-// ----------------------------------------------------------------
-document.addEventListener("DOMContentLoaded", async () => {
-  await loadData();
-  initializeChart();
+function showTooltip(event, mouse) {
+    const hoveredId = mouse.id;
+    
+    // Highlight all related lines
+    d3.selectAll(".mouse-line")
+        .filter(d => d.id === hoveredId)
+        .attr("opacity", 1)
+        .attr("stroke-width", 2.5);
 
-  // Add event listeners for gender selection buttons (assumes these buttons exist in your HTML)
-  document.getElementById("maleBtn").addEventListener("click", () => {
-    currentGender = "male";
-    updateChart();
-  });
-  document.getElementById("femaleBtn").addEventListener("click", () => {
-    currentGender = "female";
-    updateChart();
-  });
+    // Dim others
+    d3.selectAll(".mouse-line")
+        .filter(d => d.id !== hoveredId)
+        .attr("opacity", 0.1);
+
+    // Update tooltip
+    tooltip.style("opacity", 1)
+        .html(`
+            <strong>${mouse.id}</strong><br>
+            Gender: ${mouse.gender}<br>
+            ${mouse.type ? `Type: ${mouse.type.replace("-", " ")}` : ""}
+        `);
+}
+
+function moveTooltip(event) {
+    tooltip.style("left", `${event.pageX + 15}px`)
+          .style("top", `${event.pageY - 15}px`);
+}
+
+function hideTooltip() {
+    d3.selectAll(".mouse-line")
+        .attr("opacity", 0.7)
+        .attr("stroke-width", 1.5);
+    tooltip.style("opacity", 0);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadData();
+
+    // Button handlers
+    d3.select("#allBtn").on("click", () => {
+        currentView = "all";
+        updateChart();
+    });
+    d3.select("#maleBtn").on("click", () => {
+        currentView = "male";
+        updateChart();
+    });
+    d3.select("#femaleBtn").on("click", () => {
+        currentView = "female";
+        updateChart();
+    });
 });
