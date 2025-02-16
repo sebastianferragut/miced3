@@ -1,23 +1,48 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 
 let allTempData = [];
+// currentView can be: "all", "male", "female", or "estrus"
+let currentView = "all";
+
 let currentView = "all"; // "all", "male", "female", or "estrus"
+
 const margin = { top: 30, right: 30, bottom: 50, left: 60 };
 const width = 1200 - margin.left - margin.right;
 const height = 600 - margin.top - margin.bottom;
 let svg, xScale, yScale, xAxis, yAxis;
-let originalXDomain, originalYDomain; // store initial domains for reset
+let originalXDomain, originalYDomain; // for reset
+let constantXScale; // for background & label positioning (always full day)
 const tooltip = d3.select("#tooltip")
   .style("position", "absolute")
   .style("pointer-events", "none")
   .style("opacity", 0);
 
 const LIGHTS_OFF_COLOR = "rgba(0, 0, 0, 0.1)";
-const LIGHTS_CYCLE = 720;
 let globalYDomain;
 
 // Precompute an array of Date objects—one for each minute in the day.
 const times = d3.range(1440).map(i => new Date(2023, 0, 1, 0, i));
+
+// For the full-day view, define custom ticks:
+const fullDayTicks = [
+  new Date(2023, 0, 1, 0, 0),
+  new Date(2023, 0, 1, 3, 0),
+  new Date(2023, 0, 1, 6, 0),
+  new Date(2023, 0, 1, 9, 0),
+  new Date(2023, 0, 1, 12, 0),
+  new Date(2023, 0, 1, 15, 0),
+  new Date(2023, 0, 1, 18, 0),
+  new Date(2023, 0, 1, 21, 0),
+  new Date(2023, 0, 1, 23, 59)
+];
+
+// Custom tick format: if tick is exactly 11:59 pm, show that text.
+const customTimeFormat = d => {
+  if (d.getHours() === 23 && d.getMinutes() === 59) {
+    return "11:59 pm";
+  }
+  return d3.timeFormat("%-I %p")(d);
+};
 
 async function loadData() {
   const [maleTemp, femTemp] = await Promise.all([
@@ -30,7 +55,7 @@ async function loadData() {
     ...processMiceData(femTemp, "female")
   ];
 
-  // Compute the overall y domain using all data.
+  // Compute overall y domain using all data.
   const allTempValues = allTempData.flatMap(d => d.data);
   globalYDomain = [d3.min(allTempValues), d3.max(allTempValues)];
 
@@ -108,7 +133,7 @@ function initializeChart() {
     .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-  // Add a clipPath so that lines are contained within the chart area.
+  // Add a clipPath so lines are contained.
   svg.append("defs")
     .append("clipPath")
       .attr("id", "clip")
@@ -116,39 +141,56 @@ function initializeChart() {
       .attr("width", width)
       .attr("height", height);
 
-  // xScale is time-based.
+  // xScale is time-based. Domain from 12 am to 11:59 pm.
   xScale = d3.scaleTime()
-    .domain([new Date(2023, 0, 1), new Date(2023, 0, 1, 23, 59)])
+    .domain([new Date(2023, 0, 1, 0, 0), new Date(2023, 0, 1, 23, 59)])
     .range([0, width]);
 
-  // yScale based on the global data.
+  // yScale based on global data.
   yScale = d3.scaleLinear()
     .domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02])
     .range([height, 0]);
 
-  // Save original domains for resetting.
+  // Save original domains.
   originalXDomain = xScale.domain();
   originalYDomain = yScale.domain();
 
-  // Light/dark background.
-  const startTime = new Date(2023, 0, 1);
-  [0, 1].forEach(i => {
-    const start = new Date(startTime.getTime() + i * LIGHTS_CYCLE * 60000);
-    const end = new Date(start.getTime() + LIGHTS_CYCLE * 60000);
-    svg.append("rect")
-      .attr("x", xScale(start))
-      .attr("width", xScale(end) - xScale(start))
-      .attr("height", height)
-      .attr("fill", i % 2 === 0 ? LIGHTS_OFF_COLOR : "none");
-  });
+  // Create a constant scale for background and label positioning.
+  constantXScale = d3.scaleTime()
+    .domain(originalXDomain)
+    .range([0, width]);
 
-  // Draw axes.
+  // Draw a gray background for 12 am to 12 pm using the constant scale.
+  svg.append("rect")
+    .attr("class", "background")
+    .attr("y", 0)
+    .attr("height", height)
+    .attr("fill", LIGHTS_OFF_COLOR);
+
+  // Add labels for the lighting conditions using the constant scale.
+  svg.append("text")
+    .attr("class", "lightOnLabel")
+    .attr("x", constantXScale(new Date(2023, 0, 1, 6, 0))) // midpoint of 12 am–12 pm
+    .attr("y", 20)
+    .attr("text-anchor", "middle")
+    .attr("fill", "#333")
+    .style("font-size", "16px")
+    .text("Light On");
+  svg.append("text")
+    .attr("class", "lightOffLabel")
+    .attr("x", constantXScale(new Date(2023, 0, 1, 18, 0))) // midpoint of 12 pm–11:59 pm
+    .attr("y", 20)
+    .attr("text-anchor", "middle")
+    .attr("fill", "#333")
+    .style("font-size", "16px")
+    .text("Light Off");
+
+  // Draw axes. For full-day view, force our custom tick values.
   xAxis = svg.append("g")
     .attr("transform", `translate(0,${height})`)
-    .call(
-      d3.axisBottom(xScale)
-        .ticks(d3.timeHour.every(3))
-        .tickFormat(d3.timeFormat("%-I %p"))
+    .call(d3.axisBottom(xScale)
+      .tickValues(fullDayTicks)
+      .tickFormat(customTimeFormat)
     );
     
   yAxis = svg.append("g")
@@ -162,17 +204,58 @@ function initializeChart() {
     .style("text-anchor", "middle")
     .text("Temperature (°C)");
 
-  // Add a brush along the x-axis for time-range selection.
+  // Add a brush along the x-axis.
   const brush = d3.brushX()
     .extent([[0, 0], [width, height]])
     .on("end", brushed);
-  
   svg.append("g")
     .attr("class", "brush")
     .call(brush);
+
+  updateBackground();
+}
+
+function updateBackground() {
+  // Always gray from 12 am to 12 pm using the constant scale.
+  const start = new Date(2023, 0, 1, 0, 0);
+  const end = new Date(2023, 0, 1, 12, 0);
+  svg.select("rect.background")
+    .attr("x", constantXScale(start))
+    .attr("width", constantXScale(end) - constantXScale(start));
+}
+
+function updateXAxis() {
+  // If the domain is full-day, force our custom tick values.
+  const isFullDay = (xScale.domain()[0].getTime() === originalXDomain[0].getTime() &&
+                     xScale.domain()[1].getTime() === originalXDomain[1].getTime());
+  if (isFullDay) {
+    xAxis.transition().duration(250)
+      .call(d3.axisBottom(xScale)
+        .tickValues(fullDayTicks)
+        .tickFormat(customTimeFormat)
+      );
+  } else {
+    xAxis.transition().duration(250)
+      .call(d3.axisBottom(xScale)
+        .ticks(d3.timeHour.every(3))
+        .tickFormat(d3.timeFormat("%-I %p"))
+      );
+  }
 }
 
 function updateChart() {
+
+  let filteredData;
+  if (currentView === "all") {
+    filteredData = allTempData;
+  } else if (currentView === "male") {
+    filteredData = allTempData.filter(d => d.gender === "male");
+  } else if (currentView === "female") {
+    filteredData = allTempData.filter(d => d.gender === "female");
+  } else if (currentView === "estrus") {
+    filteredData = allTempData.filter(d => d.gender === "female" && d.type === "estrus");
+  }
+
   const filteredData = allTempData.filter(d => 
     currentView === "all" ? (d.gender !== "female" || d.type === "non-estrus") :  
     (currentView === "female" ? d.gender === "female" :  
@@ -182,12 +265,14 @@ function updateChart() {
 
 
 
-  // Reset y scale to the global domain in case the view has changed.
+
+  // Reset y-scale to global domain.
   yScale.domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02]);
   yAxis.transition().duration(250).call(d3.axisLeft(yScale));
-  xAxis.transition().duration(250).call(d3.axisBottom(xScale));
+  updateXAxis();
+  updateBackground();
 
-  // Create a line generator that uses our precomputed time array.
+  // Create a line generator using our precomputed time array.
   const lineGenerator = d3.line()
     .x((d, i) => xScale(times[i]))
     .y(d => yScale(d))
@@ -219,19 +304,27 @@ function updateChart() {
 }
 
 function brushed(event) {
-  if (!event.selection) return; // Exit if no selection.
+  if (!event.selection) return; // exit if no selection
 
-  // For a time-range selection, only the x coordinates matter.
   const [x0, x1] = event.selection;
   const newXDomain = [xScale.invert(x0), xScale.invert(x1)];
   xScale.domain(newXDomain);
 
-  // Compute the corresponding minute indices.
+  // Compute corresponding minute indices.
   const startIndex = Math.max(0, Math.floor((newXDomain[0] - new Date(2023, 0, 1)) / 60000));
   const endIndex = Math.min(1439, Math.ceil((newXDomain[1] - new Date(2023, 0, 1)) / 60000));
 
-  // Recompute the y domain based on data in the selected time window.
-  const filteredData = allTempData.filter(d => currentView === "all" || d.gender === currentView);
+  // Recompute y domain based on data in the selected time window.
+  let filteredData;
+  if (currentView === "all") {
+    filteredData = allTempData;
+  } else if (currentView === "male") {
+    filteredData = allTempData.filter(d => d.gender === "male");
+  } else if (currentView === "female") {
+    filteredData = allTempData.filter(d => d.gender === "female");
+  } else if (currentView === "estrus") {
+    filteredData = allTempData.filter(d => d.gender === "female" && d.type === "estrus");
+  }
   let yMin = Infinity, yMax = -Infinity;
   filteredData.forEach(d => {
     const subData = d.data.slice(startIndex, endIndex + 1);
@@ -246,16 +339,15 @@ function brushed(event) {
   }
   yScale.domain([yMin * 0.98, yMax * 1.02]);
 
-  // Update axes.
-  xAxis.transition().duration(500).call(d3.axisBottom(xScale));
+  updateXAxis();
   yAxis.transition().duration(500).call(d3.axisLeft(yScale));
+  updateBackground();
 
-  // Update lines using the same line generator.
+  // Update lines.
   const lineGenerator = d3.line()
     .x((d, i) => xScale(times[i]))
     .y(d => yScale(d))
     .curve(d3.curveMonotoneX);
-
   svg.selectAll(".mouse-line")
     .transition().duration(500)
     .attr("d", d => lineGenerator(d.data));
@@ -265,18 +357,18 @@ function brushed(event) {
 }
 
 function resetBrush() {
-  // Reset scales to their original domains.
+  // Reset scales to original domains.
   xScale.domain(originalXDomain);
   yScale.domain(originalYDomain);
 
-  xAxis.transition().duration(500).call(d3.axisBottom(xScale));
+  updateXAxis();
   yAxis.transition().duration(500).call(d3.axisLeft(yScale));
+  updateBackground();
 
   const lineGenerator = d3.line()
     .x((d, i) => xScale(times[i]))
     .y(d => yScale(d))
     .curve(d3.curveMonotoneX);
-
   svg.selectAll(".mouse-line")
     .transition().duration(500)
     .attr("d", d => lineGenerator(d.data));
@@ -287,16 +379,13 @@ function resetBrush() {
 
 function showTooltip(event, mouse) {
   const hoveredId = mouse.id;
-  
   d3.selectAll(".mouse-line")
     .filter(d => d.id === hoveredId)
     .attr("opacity", 1)
     .attr("stroke-width", 2.5);
-
   d3.selectAll(".mouse-line")
     .filter(d => d.id !== hoveredId)
     .attr("opacity", 0.1);
-
   tooltip.style("opacity", 1)
     .html(`
       <strong>${mouse.id}</strong><br>
@@ -338,6 +427,9 @@ document.addEventListener("DOMContentLoaded", () => {
     updateChart();
   });
 
+
+
   // Reset brush button.
+
   d3.select("#resetBrush").on("click", resetBrush);
 });
