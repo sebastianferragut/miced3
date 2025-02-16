@@ -8,7 +8,7 @@ const width = 1200 - margin.left - margin.right;
 const height = 600 - margin.top - margin.bottom;
 let svg, xScale, yScale, xAxis, yAxis;
 let originalXDomain, originalYDomain; // for reset
-let constantXScale; // used for background (always full day)
+let constantXScale; // for background & label positioning (always full day)
 const tooltip = d3.select("#tooltip")
   .style("position", "absolute")
   .style("pointer-events", "none")
@@ -149,7 +149,7 @@ function initializeChart() {
   originalXDomain = xScale.domain();
   originalYDomain = yScale.domain();
 
-  // Create a constant scale (for the background) that always uses the full-day domain.
+  // Create a constant scale for background and label positioning.
   constantXScale = d3.scaleTime()
     .domain(originalXDomain)
     .range([0, width]);
@@ -161,7 +161,25 @@ function initializeChart() {
     .attr("height", height)
     .attr("fill", LIGHTS_OFF_COLOR);
 
-  // Draw axes. For the full-day view, force our custom tick values.
+  // Add labels for the lighting conditions using the constant scale.
+  svg.append("text")
+    .attr("class", "lightOnLabel")
+    .attr("x", constantXScale(new Date(2023, 0, 1, 6, 0))) // midpoint of 12 am–12 pm
+    .attr("y", 20)
+    .attr("text-anchor", "middle")
+    .attr("fill", "#333")
+    .style("font-size", "16px")
+    .text("Light On");
+  svg.append("text")
+    .attr("class", "lightOffLabel")
+    .attr("x", constantXScale(new Date(2023, 0, 1, 18, 0))) // midpoint of 12 pm–11:59 pm
+    .attr("y", 20)
+    .attr("text-anchor", "middle")
+    .attr("fill", "#333")
+    .style("font-size", "16px")
+    .text("Light Off");
+
+  // Draw axes. For full-day view, force our custom tick values.
   xAxis = svg.append("g")
     .attr("transform", `translate(0,${height})`)
     .call(d3.axisBottom(xScale)
