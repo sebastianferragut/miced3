@@ -7,21 +7,37 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Team D3: Visualizing Mouse Daily Temperature Cycles</h1>
+  <h1>Visualizing Mouse Daily Temperature Cycles</h1>
+  <div class="controls">
+    <button id="allBtn">All Mice</button>
+
+    <button id="maleBtn">Male Only</button>
+    <button id="femaleBtn">Female Only</button>
+    <button id="estrusBtn">Estrus (Female)</button>
+    <button id="resetBrush">Reset Selection</button> 
+
+    <button id="maleBtn">Male</button>
+    <button id="femaleBtn">Female (Estrus and Non-Estrus)</button>
+    <button id="estrusBtn">Female (Estrus)</button>
+    <button id="resetBrush">Reset Scope</button> 
+  </div>
+
+  <div id="legend">
+    <span style="color: #3690c0;">■ Male</span>
+    <span style="color: #ff0000;">■ Female (Non-Estrus)</span>
+    <span style="color: #ff7f0e;">■ Female (Estrus)</span>
+  </div>
+
+  <div id="chart-container"></div>
+  <div id="tooltip"></div>
   <h2>Team Members</h2>
   <p>Sebastian Ferragut (sferragut@ucsd.edu, A17263077)</p>
   <p>Khoi Phan (k8phan@ucsd.edu, A17326271)</p>
   <p>Tommy Li (wal016@ucsd.edu, A18103662)</p>
   <p>Nathan Oliver (noliver@ucsd.edu, A16768104)</p>
-  <div class="controls">
-    <button id="allBtn">All Mice</button>
-    <button id="maleBtn">Male Only</button>
-    <button id="femaleBtn">Female Only</button>
-    <button id="estrusBtn">Estrus (Female)</button>
-    <button id="resetBrush">Reset Selection</button> 
-  </div>
-  <div id="chart-container"></div>
-  <div id="tooltip"></div>
+
+  <h2>Writeup</h2>
+  <p>WIP Writewup will go here</p>
   <script type="module" src="main.js"></script>
 </body>
 </html>

@@ -3,6 +3,9 @@ import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 let allTempData = [];
 // currentView can be: "all", "male", "female", or "estrus"
 let currentView = "all";
+
+let currentView = "all"; // "all", "male", "female", or "estrus"
+
 const margin = { top: 30, right: 30, bottom: 50, left: 60 };
 const width = 1200 - margin.left - margin.right;
 const height = 600 - margin.top - margin.bottom;
@@ -92,30 +95,33 @@ function processMiceData(dataset, gender) {
     const entries = [];
     if (gender === "female") {
       if (estrusDays > 0) {
-        entries.push({
-          id: mouseID,
-          gender,
-          type: "estrus",
-          data: estrusData.map(v => v / estrusDays)
-        });
+          entries.push({
+              id: mouseID,
+              gender,
+              type: "estrus",
+              estrus: true,  // Explicitly marking estrus
+              data: estrusData.map(v => v / estrusDays)
+          });
       }
       if (nonEstrusDays > 0) {
-        entries.push({
+          entries.push({
+              id: mouseID,
+              gender,
+              type: "non-estrus",
+              estrus: false,  // Explicitly marking non-estrus
+              data: nonEstrusData.map(v => v / nonEstrusDays)
+          });
+      }
+  } else {
+      entries.push({
           id: mouseID,
           gender,
-          type: "non-estrus",
-          data: nonEstrusData.map(v => v / nonEstrusDays)
-        });
-      }
-    } else {
-      entries.push({
-        id: mouseID,
-        gender,
-        type: "male",
-        data: nonEstrusData.map(v => v / 14)
+          type: "male",
+          estrus: false,  // Males should always be non-estrus
+          data: nonEstrusData.map(v => v / 14)
       });
-    }
-    return entries;
+  }
+  return entries;  
   });
 }
 
@@ -238,6 +244,7 @@ function updateXAxis() {
 }
 
 function updateChart() {
+
   let filteredData;
   if (currentView === "all") {
     filteredData = allTempData;
@@ -248,6 +255,16 @@ function updateChart() {
   } else if (currentView === "estrus") {
     filteredData = allTempData.filter(d => d.gender === "female" && d.type === "estrus");
   }
+
+  const filteredData = allTempData.filter(d => 
+    currentView === "all" ? (d.gender !== "female" || d.type === "non-estrus") :  
+    (currentView === "female" ? d.gender === "female" :  
+    (currentView === "estrus" ? d.estrus === true :  
+    d.gender === currentView))
+  );
+
+
+
 
   // Reset y-scale to global domain.
   yScale.domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02]);
@@ -278,8 +295,8 @@ function updateChart() {
     .merge(lines)
     .attr("d", d => lineGenerator(d.data))
     .attr("stroke", d => {
-      if (d.gender === "male") return "#3690c0";
-      return d.type === "estrus" ? "#ff0000" : "#ffa500";
+      if (d.gender === "male") return "#3690c0";  // Blue for males
+      return d.type === "estrus" ? "#ff7f0e" : "#ff0000"; // Orange for estrus, Red for non-estrus females
     });
 
   // Remove old lines.
@@ -355,6 +372,9 @@ function resetBrush() {
   svg.selectAll(".mouse-line")
     .transition().duration(500)
     .attr("d", d => lineGenerator(d.data));
+
+  // Clear brush selection without affecting filters.
+  svg.select(".brush").call(d3.brush().move, null);
 }
 
 function showTooltip(event, mouse) {
@@ -406,5 +426,10 @@ document.addEventListener("DOMContentLoaded", () => {
     currentView = "estrus";
     updateChart();
   });
+
+
+
+  // Reset brush button.
+
   d3.select("#resetBrush").on("click", resetBrush);
 });
