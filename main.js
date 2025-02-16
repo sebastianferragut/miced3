@@ -171,11 +171,15 @@ function initializeChart() {
 
 function updateChart() {
   const filteredData = allTempData.filter(d => 
-    currentView === "all" || 
-    d.gender === currentView || 
-    (currentView === "estrus" && d.gender === "female" && d.type === "estrus")
+    currentView === "all" ? (d.gender !== "female" || d.type === "non-estrus") :  
+    (currentView === "female" ? d.gender === "female" :  
+    (currentView === "estrus" ? d.estrus === true :  
+    d.gender === currentView))
   );
 
+
+
+  // Reset y scale to the global domain in case the view has changed.
   yScale.domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02]);
   yAxis.transition().duration(250).call(d3.axisLeft(yScale));
   xAxis.transition().duration(250).call(d3.axisBottom(xScale));
