@@ -70,30 +70,33 @@ function processMiceData(dataset, gender) {
     const entries = [];
     if (gender === "female") {
       if (estrusDays > 0) {
-        entries.push({
-          id: mouseID,
-          gender,
-          type: "estrus",
-          data: estrusData.map(v => v / estrusDays)
-        });
+          entries.push({
+              id: mouseID,
+              gender,
+              type: "estrus",
+              estrus: true,  // Explicitly marking estrus
+              data: estrusData.map(v => v / estrusDays)
+          });
       }
       if (nonEstrusDays > 0) {
-        entries.push({
+          entries.push({
+              id: mouseID,
+              gender,
+              type: "non-estrus",
+              estrus: false,  // Explicitly marking non-estrus
+              data: nonEstrusData.map(v => v / nonEstrusDays)
+          });
+      }
+  } else {
+      entries.push({
           id: mouseID,
           gender,
-          type: "non-estrus",
-          data: nonEstrusData.map(v => v / nonEstrusDays)
-        });
-      }
-    } else {
-      entries.push({
-        id: mouseID,
-        gender,
-        type: "male",
-        data: nonEstrusData.map(v => v / 14)
+          type: "male",
+          estrus: false,  // Males should always be non-estrus
+          data: nonEstrusData.map(v => v / 14)
       });
-    }
-    return entries;
+  }
+  return entries;  
   });
 }
 
@@ -277,6 +280,9 @@ function resetBrush() {
   svg.selectAll(".mouse-line")
     .transition().duration(500)
     .attr("d", d => lineGenerator(d.data));
+
+  // Clear brush selection without affecting filters.
+  svg.select(".brush").call(d3.brush().move, null);
 }
 
 function showTooltip(event, mouse) {
