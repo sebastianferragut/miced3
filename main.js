@@ -1,25 +1,28 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 
 let allTempData = [];
-let allActData = [];
 let currentView = "all"; // "all", "male", or "female"
-let currentMetric = "temp"; // "temp" or "act"
-let globalYDomainTemp = [0, 0];
-let globalYDomainAct = [0, 0];
 const margin = { top: 30, right: 30, bottom: 50, left: 60 };
 const width = 1200 - margin.left - margin.right;
 const height = 600 - margin.top - margin.bottom;
 let svg, xScale, yScale, xAxis, yAxis;
-const tooltip = d3.select("#tooltip");
+let originalXDomain, originalYDomain; // store initial domains for reset
+const tooltip = d3.select("#tooltip")
+  .style("position", "absolute")
+  .style("pointer-events", "none")
+  .style("opacity", 0);
+
 const LIGHTS_OFF_COLOR = "rgba(0, 0, 0, 0.1)";
 const LIGHTS_CYCLE = 720;
+let globalYDomain;
+
+// Precompute an array of Date objects—one for each minute in the day.
+const times = d3.range(1440).map(i => new Date(2023, 0, 1, 0, i));
 
 async function loadData() {
-  const [maleTemp, femTemp, maleAct, femAct] = await Promise.all([
+  const [maleTemp, femTemp] = await Promise.all([
     d3.csv("data/male_temp.csv", rowConverter),
-    d3.csv("data/fem_temp.csv", rowConverter),
-    d3.csv("data/male_act.csv", rowConverter),
-    d3.csv("data/fem_act.csv", rowConverter)
+    d3.csv("data/fem_temp.csv", rowConverter)
   ]);
 
   allTempData = [
@@ -27,17 +30,9 @@ async function loadData() {
     ...processMiceData(femTemp, "female")
   ];
 
-  allActData = [
-    ...processMiceData(maleAct, "male"),
-    ...processMiceData(femAct, "female")
-  ];
-
-  // Calculate global Y-axis domains
+  // Compute the overall y domain using all data.
   const allTempValues = allTempData.flatMap(d => d.data);
-  globalYDomainTemp = [d3.min(allTempValues), d3.max(allTempValues)];
-
-  const allActValues = allActData.flatMap(d => d.data);
-  globalYDomainAct = [d3.min(allActValues), d3.max(allActValues)];
+  globalYDomain = [d3.min(allTempValues), d3.max(allTempValues)];
 
   initializeChart();
   updateChart();
@@ -53,7 +48,6 @@ function processMiceData(dataset, gender) {
   const miceIDs = Object.keys(dataset[0]).filter(k => k !== "minuteIndex");
   
   return miceIDs.flatMap(mouseID => {
-    // Accumulators for estrus and non‑estrus minutes
     const estrusData = new Array(1440).fill(0);
     const nonEstrusData = new Array(1440).fill(0);
     let estrusDays = 0;
@@ -73,7 +67,6 @@ function processMiceData(dataset, gender) {
       }
     });
 
-    // Create an entry (or two for females)
     const entries = [];
     if (gender === "female") {
       if (estrusDays > 0) {
@@ -97,7 +90,7 @@ function processMiceData(dataset, gender) {
         id: mouseID,
         gender,
         type: "male",
-        data: nonEstrusData.map(v => v / 14) // Use all days for males
+        data: nonEstrusData.map(v => v / 14)
       });
     }
     return entries;
@@ -112,23 +105,29 @@ function initializeChart() {
     .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-  // Time scale for the day
+  // Add a clipPath so that lines are contained within the chart area.
+  svg.append("defs")
+    .append("clipPath")
+      .attr("id", "clip")
+    .append("rect")
+      .attr("width", width)
+      .attr("height", height);
+
+  // xScale is time-based.
   xScale = d3.scaleTime()
     .domain([new Date(2023, 0, 1), new Date(2023, 0, 1, 23, 59)])
     .range([0, width]);
 
-  // y‑scale based on the current metric
-  if (currentMetric === "temp") {
-    yScale = d3.scaleLinear()
-      .domain([globalYDomainTemp[0] * 0.98, globalYDomainTemp[1] * 1.02])
-      .range([height, 0]);
-  } else {
-    yScale = d3.scaleLinear()
-      .domain([globalYDomainAct[0] * 0.98, globalYDomainAct[1] * 1.02])
-      .range([height, 0]);
-  }
+  // yScale based on the global data.
+  yScale = d3.scaleLinear()
+    .domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02])
+    .range([height, 0]);
 
-  // Light/dark background blocks
+  // Save original domains for resetting.
+  originalXDomain = xScale.domain();
+  originalYDomain = yScale.domain();
+
+  // Light/dark background.
   const startTime = new Date(2023, 0, 1);
   [0, 1].forEach(i => {
     const start = new Date(startTime.getTime() + i * LIGHTS_CYCLE * 60000);
@@ -140,7 +139,7 @@ function initializeChart() {
       .attr("fill", i % 2 === 0 ? LIGHTS_OFF_COLOR : "none");
   });
 
-  // Axes
+  // Draw axes.
   xAxis = svg.append("g")
     .attr("transform", `translate(0,${height})`)
     .call(
@@ -152,44 +151,46 @@ function initializeChart() {
   yAxis = svg.append("g")
     .call(d3.axisLeft(yScale));
 
-  // y‑axis label
   svg.append("text")
     .attr("class", "y-axis-label")
     .attr("transform", "rotate(-90)")
     .attr("y", -margin.left + 15)
     .attr("x", -height / 2)
     .style("text-anchor", "middle")
-    .text(currentMetric === "temp" ? "Temperature (°C)" : "Activity");
+    .text("Temperature (°C)");
+
+  // Add a brush along the x-axis for time-range selection.
+  const brush = d3.brushX()
+    .extent([[0, 0], [width, height]])
+    .on("end", brushed);
+  
+  svg.append("g")
+    .attr("class", "brush")
+    .call(brush);
 }
 
 function updateChart() {
-  let filteredData, yDomain;
-  if (currentMetric === "temp") {
-    filteredData = allTempData.filter(d => currentView === "all" || d.gender === currentView);
-    yDomain = globalYDomainTemp;
-  } else {
-    filteredData = allActData.filter(d => currentView === "all" || d.gender === currentView);
-    yDomain = globalYDomainAct;
-  }
+  const filteredData = allTempData.filter(d => currentView === "all" || d.gender === currentView);
 
-  // Update y‑scale and axis
-  yScale.domain([yDomain[0] * 0.98, yDomain[1] * 1.02]);
-  yAxis.transition().duration(500).call(d3.axisLeft(yScale));
+  // Reset y scale to the global domain in case the view has changed.
+  yScale.domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02]);
+  yAxis.transition().duration(250).call(d3.axisLeft(yScale));
+  xAxis.transition().duration(250).call(d3.axisBottom(xScale));
 
-  // Line generator
-  const line = d3.line()
-    .x((_, i) => xScale(new Date(2023, 0, 1, 0, i)))
+  // Create a line generator that uses our precomputed time array.
+  const lineGenerator = d3.line()
+    .x((d, i) => xScale(times[i]))
     .y(d => yScale(d))
     .curve(d3.curveMonotoneX);
 
-  // NOTE: Including currentMetric in the key forces a full update when the metric changes.
   const lines = svg.selectAll(".mouse-line")
-    .data(filteredData, d => `${currentMetric}-${d.id}-${d.type}`);
+    .data(filteredData, d => `${d.id}-${d.type}`);
 
-  // Enter new lines
+  // Enter new lines.
   lines.enter()
     .append("path")
       .attr("class", "mouse-line")
+      .attr("clip-path", "url(#clip)")
       .attr("fill", "none")
       .attr("stroke-width", 1.5)
       .attr("opacity", 0.7)
@@ -197,37 +198,88 @@ function updateChart() {
       .on("mousemove", moveTooltip)
       .on("mouseout", hideTooltip)
     .merge(lines)
-    .transition().duration(500)
-      .attr("d", d => line(d.data))
-      .attr("stroke", d => {
-        if (d.gender === "male") return "#3690c0"; // Blue for males
-        return d.type === "estrus" ? "#ff0000" : "#ffa500"; // Red or orange for females
-      });
+    .attr("d", d => lineGenerator(d.data))
+    .attr("stroke", d => {
+      if (d.gender === "male") return "#3690c0";
+      return d.type === "estrus" ? "#ff0000" : "#ffa500";
+    });
 
-  // Remove old lines
+  // Remove old lines.
   lines.exit().remove();
+}
 
-  // Update y‑axis label
-  svg.selectAll("text.y-axis-label").remove();
-  svg.append("text")
-    .attr("class", "y-axis-label")
-    .attr("transform", "rotate(-90)")
-    .attr("y", -margin.left + 15)
-    .attr("x", -height / 2)
-    .style("text-anchor", "middle")
-    .text(currentMetric === "temp" ? "Temperature (°C)" : "Activity");
+function brushed(event) {
+  if (!event.selection) return; // Exit if no selection.
+
+  // For a time-range selection, only the x coordinates matter.
+  const [x0, x1] = event.selection;
+  const newXDomain = [xScale.invert(x0), xScale.invert(x1)];
+  xScale.domain(newXDomain);
+
+  // Compute the corresponding minute indices.
+  const startIndex = Math.max(0, Math.floor((newXDomain[0] - new Date(2023, 0, 1)) / 60000));
+  const endIndex = Math.min(1439, Math.ceil((newXDomain[1] - new Date(2023, 0, 1)) / 60000));
+
+  // Recompute the y domain based on data in the selected time window.
+  const filteredData = allTempData.filter(d => currentView === "all" || d.gender === currentView);
+  let yMin = Infinity, yMax = -Infinity;
+  filteredData.forEach(d => {
+    const subData = d.data.slice(startIndex, endIndex + 1);
+    const localMin = d3.min(subData);
+    const localMax = d3.max(subData);
+    if (localMin < yMin) yMin = localMin;
+    if (localMax > yMax) yMax = localMax;
+  });
+  if (yMin === Infinity || yMax === -Infinity) {
+    yMin = globalYDomain[0];
+    yMax = globalYDomain[1];
+  }
+  yScale.domain([yMin * 0.98, yMax * 1.02]);
+
+  // Update axes.
+  xAxis.transition().duration(500).call(d3.axisBottom(xScale));
+  yAxis.transition().duration(500).call(d3.axisLeft(yScale));
+
+  // Update lines using the same line generator.
+  const lineGenerator = d3.line()
+    .x((d, i) => xScale(times[i]))
+    .y(d => yScale(d))
+    .curve(d3.curveMonotoneX);
+
+  svg.selectAll(".mouse-line")
+    .transition().duration(500)
+    .attr("d", d => lineGenerator(d.data));
+
+  // Clear the brush selection.
+  svg.select(".brush").call(d3.brush().move, null);
+}
+
+function resetBrush() {
+  // Reset scales to their original domains.
+  xScale.domain(originalXDomain);
+  yScale.domain(originalYDomain);
+
+  xAxis.transition().duration(500).call(d3.axisBottom(xScale));
+  yAxis.transition().duration(500).call(d3.axisLeft(yScale));
+
+  const lineGenerator = d3.line()
+    .x((d, i) => xScale(times[i]))
+    .y(d => yScale(d))
+    .curve(d3.curveMonotoneX);
+
+  svg.selectAll(".mouse-line")
+    .transition().duration(500)
+    .attr("d", d => lineGenerator(d.data));
 }
 
 function showTooltip(event, mouse) {
   const hoveredId = mouse.id;
   
-  // Highlight all lines for the hovered mouse
   d3.selectAll(".mouse-line")
     .filter(d => d.id === hoveredId)
     .attr("opacity", 1)
     .attr("stroke-width", 2.5);
 
-  // Dim all other lines
   d3.selectAll(".mouse-line")
     .filter(d => d.id !== hoveredId)
     .attr("opacity", 0.1);
@@ -255,7 +307,7 @@ function hideTooltip() {
 document.addEventListener("DOMContentLoaded", () => {
   loadData();
 
-  // View filter buttons
+  // Button event handlers.
   d3.select("#allBtn").on("click", () => {
     currentView = "all";
     updateChart();
@@ -269,13 +321,6 @@ document.addEventListener("DOMContentLoaded", () => {
     updateChart();
   });
 
-  // Metric switch buttons
-  d3.select("#tempBtn").on("click", () => {
-    currentMetric = "temp";
-    updateChart();
-  });
-  d3.select("#actBtn").on("click", () => {
-    currentMetric = "act";
-    updateChart();
-  });
+  // Reset brush button.
+  d3.select("#resetBrush").on("click", resetBrush);
 });
