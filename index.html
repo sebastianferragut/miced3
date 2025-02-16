@@ -1,34 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mouse Temperature Cycles</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .controls { text-align: center; margin: 20px 0; }
-        button { padding: 8px 16px; margin: 0 5px; cursor: pointer; }
-        #tooltip {
-            position: absolute;
-            padding: 10px;
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            border-radius: 4px;
-            pointer-events: none;
-            font-size: 14px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mouse Temperature & Activity Cycles</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .controls {
+      text-align: center;
+      margin: 20px 0;
+    }
+    button {
+      padding: 8px 16px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    #tooltip {
+      position: absolute;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      border-radius: 4px;
+      pointer-events: none;
+      font-size: 14px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+  </style>
 </head>
 <body>
-    <h1>Mouse Temperature Cycles</h1>
-    <div class="controls">
-        <button id="allBtn">All Mice</button>
-        <button id="maleBtn">Male Only</button>
-        <button id="femaleBtn">Female Only</button>
-    </div>
-    <div id="chart-container"></div>
-    <div id="tooltip"></div>
-    <script type="module" src="main.js"></script>
+  <h1>Mouse Temperature & Activity Cycles</h1>
+  <div class="controls">
+    <!-- View filter buttons -->
+    <button id="allBtn">All Mice</button>
+    <button id="maleBtn">Male Only</button>
+    <button id="femaleBtn">Female Only</button>
+    <!-- Metric switch buttons -->
+    <button id="tempBtn">Body Temperature</button>
+    <button id="actBtn">Activity</button>
+  </div>
+  <div id="chart-container"></div>
+  <div id="tooltip"></div>
+  <script type="module" src="main.js"></script>
 </body>
 </html>
