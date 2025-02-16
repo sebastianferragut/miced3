@@ -178,6 +178,7 @@ function updateChart() {
   );
 
 
+
   // Reset y scale to the global domain in case the view has changed.
   yScale.domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02]);
   yAxis.transition().duration(250).call(d3.axisLeft(yScale));
