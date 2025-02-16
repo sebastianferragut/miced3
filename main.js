@@ -1,7 +1,7 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 
 let allTempData = [];
-let currentView = "all"; // "all", "male", or "female"
+let currentView = "all"; // "all", "male", "female", or "estrus"
 const margin = { top: 30, right: 30, bottom: 50, left: 60 };
 const width = 1200 - margin.left - margin.right;
 const height = 600 - margin.top - margin.bottom;
@@ -170,7 +170,11 @@ function initializeChart() {
 }
 
 function updateChart() {
-  const filteredData = allTempData.filter(d => currentView === "all" || d.gender === currentView);
+  const filteredData = allTempData.filter(d => 
+    currentView === "all" || 
+    d.gender === currentView || 
+    (currentView === "estrus" && d.gender === "female" && d.type === "estrus")
+  );
 
   // Reset y scale to the global domain in case the view has changed.
   yScale.domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02]);
@@ -200,8 +204,8 @@ function updateChart() {
     .merge(lines)
     .attr("d", d => lineGenerator(d.data))
     .attr("stroke", d => {
-      if (d.gender === "male") return "#3690c0";
-      return d.type === "estrus" ? "#ff0000" : "#ffa500";
+      if (d.gender === "male") return "#3690c0";  // Blue for males
+      return d.type === "estrus" ? "#ff7f0e" : "#ff0000"; // Orange for estrus, Red for non-estrus females
     });
 
   // Remove old lines.
@@ -318,6 +322,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   d3.select("#femaleBtn").on("click", () => {
     currentView = "female";
+    updateChart();
+  });
+  d3.select("#estrusBtn").on("click", () => {
+    currentView = "estrus";
     updateChart();
   });
 
