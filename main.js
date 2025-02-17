@@ -244,21 +244,51 @@ function updateBackground() {
   }
 }
 
+// ── UPDATED ──
+// This updateXAxis function now dynamically chooses the tick interval
+// and formatting based on the zoom level (i.e. the width of the xScale domain).
 function updateXAxis() {
-  // If the domain is full-day, force our custom tick values.
-  const isFullDay = (xScale.domain()[0].getTime() === originalXDomain[0].getTime() &&
-                     xScale.domain()[1].getTime() === originalXDomain[1].getTime());
-  if (isFullDay) {
+  const currentDomain = xScale.domain();
+  const domainDuration = currentDomain[1] - currentDomain[0];
+
+  // If we're at the full-day view, use the custom fullDayTicks.
+  if (
+    currentDomain[0].getTime() === originalXDomain[0].getTime() &&
+    currentDomain[1].getTime() === originalXDomain[1].getTime()
+  ) {
     xAxis.transition().duration(250)
       .call(d3.axisBottom(xScale)
         .tickValues(fullDayTicks)
         .tickFormat(customTimeFormat)
       );
   } else {
+    let tickInterval, tickFormat;
+    const oneHour = 60 * 60 * 1000;
+    const sixHours = 6 * oneHour;
+    const tenMinutes = 10 * 60 * 1000;
+
+    if (domainDuration > sixHours) {
+      // For zoom levels spanning more than 6 hours, show ticks every hour.
+      tickInterval = d3.timeHour.every(1);
+      tickFormat = d3.timeFormat("%-I %p");
+    } else if (domainDuration > oneHour) {
+      // For zoom levels spanning between 1 and 6 hours, show ticks every 15 minutes.
+      tickInterval = d3.timeMinute.every(15);
+      tickFormat = d3.timeFormat("%-I:%M %p");
+    } else if (domainDuration > tenMinutes) {
+      // For zoom levels spanning between 10 minutes and 1 hour, show ticks every 5 minutes.
+      tickInterval = d3.timeMinute.every(5);
+      tickFormat = d3.timeFormat("%-I:%M %p");
+    } else {
+      // For very zoomed-in views (less than 10 minutes), show ticks every minute.
+      tickInterval = d3.timeMinute.every(1);
+      tickFormat = d3.timeFormat("%-I:%M:%S %p");
+    }
+
     xAxis.transition().duration(250)
       .call(d3.axisBottom(xScale)
-        .ticks(d3.timeHour.every(3))
-        .tickFormat(d3.timeFormat("%-I %p"))
+        .ticks(tickInterval)
+        .tickFormat(tickFormat)
       );
   }
 }
