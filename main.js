@@ -176,7 +176,6 @@ function initializeChart() {
     .attr("text-anchor", "middle")
     .attr("fill", "#333")
     .style("font-size", "16px")
-    .text("Light On");
   // "Light Off" covers 12:00 pm to 11:59 pm (grey background).
   svg.append("text")
     .attr("class", "lightOffLabel")
@@ -185,7 +184,6 @@ function initializeChart() {
     .attr("text-anchor", "middle")
     .attr("fill", "#333")
     .style("font-size", "16px")
-    .text("Light Off");
 
   // Add x-axis title: "Time of Day"
   svg.append("text")
@@ -235,6 +233,8 @@ function initializeChart() {
     .attr("y", 15)
     .style("font-size", "12px")
     .attr("fill", "#333")
+    .text("Light On");
+
 
   // Legend item for Light Off (grey)
   legend.append("rect")
@@ -244,12 +244,14 @@ function initializeChart() {
     .attr("height", 20)
     .attr("fill", LIGHTS_OFF_COLOR)
     .attr("stroke", "black");
+    
 
   legend.append("text")
     .attr("x", 25)
     .attr("y", 40)
     .style("font-size", "12px")
     .attr("fill", "#333")
+    .text("Light Off");
 
   // Add a brush along the x-axis.
   const brush = d3.brushX()
