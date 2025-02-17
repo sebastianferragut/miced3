@@ -176,7 +176,6 @@ function initializeChart() {
     .attr("text-anchor", "middle")
     .attr("fill", "#333")
     .style("font-size", "16px")
-    .text("Light On");
   // "Light Off" covers 12:00 pm to 11:59 pm (grey background).
   svg.append("text")
     .attr("class", "lightOffLabel")
@@ -185,7 +184,6 @@ function initializeChart() {
     .attr("text-anchor", "middle")
     .attr("fill", "#333")
     .style("font-size", "16px")
-    .text("Light Off");
 
   // Draw axes. For the full-day view, force our custom tick values.
   xAxis = svg.append("g")
