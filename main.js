@@ -13,7 +13,8 @@ const width = 1200 - margin.left - margin.right;
 const height = 600 - margin.top - margin.bottom;
 let svg, xScale, yScale, xAxis, yAxis;
 let originalXDomain, originalYDomain; // for reset
-let constantXScale; // for background & label positioning (always full day)
+// constantXScale remains for positioning static labels (like "Light On"/"Light Off")
+let constantXScale; 
 const tooltip = d3.select("#tooltip")
   .style("position", "absolute")
   .style("pointer-events", "none")
@@ -140,7 +141,7 @@ function initializeChart() {
       .attr("width", width)
       .attr("height", height);
 
-  // xScale is time-based. Domain from 12 am to 11:59 pm.
+  // xScale is time-based. Domain from 12:00 am to 11:59 pm.
   xScale = d3.scaleTime()
     .domain([new Date(2023, 0, 1, 0, 0), new Date(2023, 0, 1, 23, 59)])
     .range([0, width]);
@@ -154,12 +155,13 @@ function initializeChart() {
   originalXDomain = xScale.domain();
   originalYDomain = yScale.domain();
 
-  // Create a constant scale for background and label positioning.
+  // Create a constant scale for positioning static elements (like labels)
   constantXScale = d3.scaleTime()
     .domain(originalXDomain)
     .range([0, width]);
 
-  // Draw a gray background for 12 am to 12 pm using the constant scale.
+  // Draw a grey background rectangle.
+  // Its positioning will be updated in updateBackground().
   svg.append("rect")
     .attr("class", "background")
     .attr("y", 0)
@@ -211,16 +213,35 @@ function initializeChart() {
     .attr("class", "brush")
     .call(brush);
 
+  // Initial background update.
   updateBackground();
 }
 
 function updateBackground() {
-  // Always gray from 12 am to 12 pm using the constant scale.
-  const start = new Date(2023, 0, 1, 0, 0);
-  const end = new Date(2023, 0, 1, 12, 0);
-  svg.select("rect.background")
-    .attr("x", constantXScale(start))
-    .attr("width", constantXScale(end) - constantXScale(start));
+  // Fixed grey interval: 12:00 am to 12:00 pm.
+  const greyStart = new Date(2023, 0, 1, 0, 0);
+  const greyEnd = new Date(2023, 0, 1, 12, 0);
+
+  // Get the currently visible time range from xScale.
+  const currentDomain = xScale.domain();
+
+  // Calculate the overlap between the visible domain and the fixed grey interval.
+  const overlapStart = currentDomain[0] > greyStart ? currentDomain[0] : greyStart;
+  const overlapEnd = currentDomain[1] < greyEnd ? currentDomain[1] : greyEnd;
+
+  // If there is an overlap, draw the grey rectangle to cover that portion.
+  if (overlapStart < overlapEnd) {
+    const x = xScale(overlapStart);
+    const w = xScale(overlapEnd) - xScale(overlapStart);
+    svg.select("rect.background")
+      .attr("x", x)
+      .attr("width", w)
+      .attr("visibility", "visible");
+  } else {
+    // No overlap: hide the grey rectangle.
+    svg.select("rect.background")
+      .attr("visibility", "hidden");
+  }
 }
 
 function updateXAxis() {
