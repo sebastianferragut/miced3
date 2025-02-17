@@ -94,7 +94,7 @@ function updateDimensions() {
     .attr("y", -margin.left + 15);
 
   // Update brush extent.
-  svg.select(".brush").call(d3.brushX().extent([[0, 0], [width, height]]));
+  svg.select(".brush").call(d3.brushX().extent([[0, 0], [width, height]]).on("end", brushed));
 
   // **Move the legend to the right of the graph**
   d3.select(".legend")
@@ -447,7 +447,7 @@ function updateChart() {
     });
 
   // Remove old lines.
-  lines.exit().remove();
+  lines.exit().remove(); 
 }
 
 function brushed(event) {
@@ -563,4 +563,8 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Resize the chart when the window resizes
-window.addEventListener("resize", updateDimensions);
+window.addEventListener("resize", function() {
+  updateDimensions();  // Update dimensions
+  brush.clear();       // Clear the brush selection
+  svg.select(".brush").call(brush);  // Redraw the brush
+});
