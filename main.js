@@ -13,7 +13,7 @@ const width = 1200 - margin.left - margin.right;
 const height = 600 - margin.top - margin.bottom;
 let svg, xScale, yScale, xAxis, yAxis;
 let originalXDomain, originalYDomain; // for reset
-// constantXScale remains for positioning static labels (like "Light On"/"Light Off")
+// constantXScale remains for positioning static elements (like "Light On"/"Light Off")
 let constantXScale; 
 const tooltip = d3.select("#tooltip")
   .style("position", "absolute")
@@ -160,15 +160,15 @@ function initializeChart() {
     .domain(originalXDomain)
     .range([0, width]);
 
-  // Draw a grey background rectangle.
-  // Its positioning will be updated in updateBackground().
+  // Draw a grey background rectangle for "lights off".
   svg.append("rect")
     .attr("class", "background")
     .attr("y", 0)
     .attr("height", height)
     .attr("fill", LIGHTS_OFF_COLOR);
 
-  // Add labels for the lighting conditions using the constant scale.
+  // Add labels for the lighting conditions.
+  // "Light On" covers midnight to noon (white background).
   svg.append("text")
     .attr("class", "lightOnLabel")
     .attr("x", constantXScale(new Date(2023, 0, 1, 6, 0))) // midpoint of 12 am–12 pm
@@ -177,6 +177,7 @@ function initializeChart() {
     .attr("fill", "#333")
     .style("font-size", "16px")
     .text("Light On");
+  // "Light Off" covers 12:00 pm to 11:59 pm (grey background).
   svg.append("text")
     .attr("class", "lightOffLabel")
     .attr("x", constantXScale(new Date(2023, 0, 1, 18, 0))) // midpoint of 12 pm–11:59 pm
@@ -218,9 +219,9 @@ function initializeChart() {
 }
 
 function updateBackground() {
-  // Fixed grey interval: 12:00 am to 12:00 pm.
-  const greyStart = new Date(2023, 0, 1, 0, 0);
-  const greyEnd = new Date(2023, 0, 1, 12, 0);
+  // Set the grey interval to represent "lights off": 12:00 pm to 11:59 pm.
+  const greyStart = new Date(2023, 0, 1, 12, 0);
+  const greyEnd = new Date(2023, 0, 1, 23, 59);
 
   // Get the currently visible time range from xScale.
   const currentDomain = xScale.domain();
@@ -244,9 +245,7 @@ function updateBackground() {
   }
 }
 
-// ── UPDATED ──
-// This updateXAxis function now dynamically chooses the tick interval
-// and formatting based on the zoom level (i.e. the width of the xScale domain).
+// Dynamically update the x-axis ticks based on the zoom level.
 function updateXAxis() {
   const currentDomain = xScale.domain();
   const domainDuration = currentDomain[1] - currentDomain[0];
