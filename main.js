@@ -13,8 +13,8 @@ const width = 1200 - margin.left - margin.right;
 const height = 600 - margin.top - margin.bottom;
 let svg, xScale, yScale, xAxis, yAxis;
 let originalXDomain, originalYDomain; // for reset
-// constantXScale remains for positioning static labels (like "Light On"/"Light Off")
-let constantXScale; 
+// constantXScale remains for positioning static elements (like labels)
+let constantXScale;
 const tooltip = d3.select("#tooltip")
   .style("position", "absolute")
   .style("pointer-events", "none")
@@ -74,7 +74,7 @@ function rowConverter(d) {
 
 function processMiceData(dataset, gender) {
   const miceIDs = Object.keys(dataset[0]).filter(k => k !== "minuteIndex");
-  
+
   return miceIDs.flatMap(mouseID => {
     const estrusData = new Array(1440).fill(0);
     const nonEstrusData = new Array(1440).fill(0);
@@ -160,31 +160,40 @@ function initializeChart() {
     .domain(originalXDomain)
     .range([0, width]);
 
-  // Draw a grey background rectangle.
-  // Its positioning will be updated in updateBackground().
+  // Draw a grey background rectangle for "lights off".
   svg.append("rect")
     .attr("class", "background")
     .attr("y", 0)
     .attr("height", height)
     .attr("fill", LIGHTS_OFF_COLOR);
 
-  // Add labels for the lighting conditions using the constant scale.
-  // svg.append("text")
-  //   .attr("class", "lightOnLabel")
-  //   .attr("x", constantXScale(new Date(2023, 0, 1, 6, 0))) // midpoint of 12 am–12 pm
-  //   .attr("y", 20)
-  //   .attr("text-anchor", "middle")
-  //   .attr("fill", "#333")
-  //   .style("font-size", "16px")
-  //   .text("Light On");
-  // svg.append("text")
-  //   .attr("class", "lightOffLabel")
-  //   .attr("x", constantXScale(new Date(2023, 0, 1, 18, 0))) // midpoint of 12 pm–11:59 pm
-  //   .attr("y", 20)
-  //   .attr("text-anchor", "middle")
-  //   .attr("fill", "#333")
-  //   .style("font-size", "16px")
-  //   .text("Light Off");
+  // Add labels for the lighting conditions.
+  // "Light On" covers midnight to noon (white background).
+  svg.append("text")
+    .attr("class", "lightOnLabel")
+    .attr("x", constantXScale(new Date(2023, 0, 1, 6, 0))) // midpoint of 12 am–12 pm
+    .attr("y", 20)
+    .attr("text-anchor", "middle")
+    .attr("fill", "#333")
+    .style("font-size", "16px")
+  // "Light Off" covers 12:00 pm to 11:59 pm (grey background).
+  svg.append("text")
+    .attr("class", "lightOffLabel")
+    .attr("x", constantXScale(new Date(2023, 0, 1, 18, 0))) // midpoint of 12 pm–11:59 pm
+    .attr("y", 20)
+    .attr("text-anchor", "middle")
+    .attr("fill", "#333")
+    .style("font-size", "16px")
+
+  // Add x-axis title: "Time of Day"
+  svg.append("text")
+    .attr("class", "x-axis-label")
+    .attr("x", width / 2)
+    .attr("y", height + margin.bottom - 10)
+    .attr("text-anchor", "middle")
+    .style("font-size", "14px")
+    .style("fill", "#333")
+    .text("Time of Day");
 
   // Draw axes. For the full-day view, force our custom tick values.
   xAxis = svg.append("g")
@@ -205,6 +214,45 @@ function initializeChart() {
     .style("text-anchor", "middle")
     .text("Temperature (°C)");
 
+  // Add a legend for "Light On" and "Light Off".
+  const legend = svg.append("g")
+    .attr("class", "legend")
+    .attr("transform", `translate(${width - 120}, 10)`);
+
+  // Legend item for Light On (white)
+  legend.append("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", 20)
+    .attr("height", 20)
+    .attr("fill", "white")
+    .attr("stroke", "black");
+
+  legend.append("text")
+    .attr("x", 25)
+    .attr("y", 15)
+    .style("font-size", "12px")
+    .attr("fill", "#333")
+    .text("Light On");
+
+
+  // Legend item for Light Off (grey)
+  legend.append("rect")
+    .attr("x", 0)
+    .attr("y", 25)
+    .attr("width", 20)
+    .attr("height", 20)
+    .attr("fill", LIGHTS_OFF_COLOR)
+    .attr("stroke", "black");
+    
+
+  legend.append("text")
+    .attr("x", 25)
+    .attr("y", 40)
+    .style("font-size", "12px")
+    .attr("fill", "#333")
+    .text("Light Off");
+
   // Add a brush along the x-axis.
   const brush = d3.brushX()
     .extent([[0, 0], [width, height]])
@@ -218,9 +266,9 @@ function initializeChart() {
 }
 
 function updateBackground() {
-  // Fixed grey interval: 12:00 am to 12:00 pm.
-  const greyStart = new Date(2023, 0, 1, 0, 0);
-  const greyEnd = new Date(2023, 0, 1, 12, 0);
+  // Set the grey interval to represent "lights off": 12:00 pm to 11:59 pm.
+  const greyStart = new Date(2023, 0, 1, 12, 0);
+  const greyEnd = new Date(2023, 0, 1, 23, 59);
 
   // Get the currently visible time range from xScale.
   const currentDomain = xScale.domain();
@@ -244,21 +292,49 @@ function updateBackground() {
   }
 }
 
+// Dynamically update the x-axis ticks based on the zoom level.
 function updateXAxis() {
-  // If the domain is full-day, force our custom tick values.
-  const isFullDay = (xScale.domain()[0].getTime() === originalXDomain[0].getTime() &&
-                     xScale.domain()[1].getTime() === originalXDomain[1].getTime());
-  if (isFullDay) {
+  const currentDomain = xScale.domain();
+  const domainDuration = currentDomain[1] - currentDomain[0];
+
+  // If we're at the full-day view, use the custom fullDayTicks.
+  if (
+    currentDomain[0].getTime() === originalXDomain[0].getTime() &&
+    currentDomain[1].getTime() === originalXDomain[1].getTime()
+  ) {
     xAxis.transition().duration(250)
       .call(d3.axisBottom(xScale)
         .tickValues(fullDayTicks)
         .tickFormat(customTimeFormat)
       );
   } else {
+    let tickInterval, tickFormat;
+    const oneHour = 60 * 60 * 1000;
+    const sixHours = 6 * oneHour;
+    const tenMinutes = 10 * 60 * 1000;
+
+    if (domainDuration > sixHours) {
+      // For zoom levels spanning more than 6 hours, show ticks every hour.
+      tickInterval = d3.timeHour.every(1);
+      tickFormat = d3.timeFormat("%-I %p");
+    } else if (domainDuration > oneHour) {
+      // For zoom levels spanning between 1 and 6 hours, show ticks every 15 minutes.
+      tickInterval = d3.timeMinute.every(15);
+      tickFormat = d3.timeFormat("%-I:%M %p");
+    } else if (domainDuration > tenMinutes) {
+      // For zoom levels spanning between 10 minutes and 1 hour, show ticks every 5 minutes.
+      tickInterval = d3.timeMinute.every(5);
+      tickFormat = d3.timeFormat("%-I:%M %p");
+    } else {
+      // For very zoomed-in views (less than 10 minutes), show ticks every minute.
+      tickInterval = d3.timeMinute.every(1);
+      tickFormat = d3.timeFormat("%-I:%M:%S %p");
+    }
+
     xAxis.transition().duration(250)
       .call(d3.axisBottom(xScale)
-        .ticks(d3.timeHour.every(3))
-        .tickFormat(d3.timeFormat("%-I %p"))
+        .ticks(tickInterval)
+        .tickFormat(tickFormat)
       );
   }
 }
