@@ -13,8 +13,8 @@ const width = 1200 - margin.left - margin.right;
 const height = 600 - margin.top - margin.bottom;
 let svg, xScale, yScale, xAxis, yAxis;
 let originalXDomain, originalYDomain; // for reset
-// constantXScale remains for positioning static elements (like "Light On"/"Light Off")
-let constantXScale; 
+// constantXScale remains for positioning static elements (like labels)
+let constantXScale;
 const tooltip = d3.select("#tooltip")
   .style("position", "absolute")
   .style("pointer-events", "none")
@@ -74,7 +74,7 @@ function rowConverter(d) {
 
 function processMiceData(dataset, gender) {
   const miceIDs = Object.keys(dataset[0]).filter(k => k !== "minuteIndex");
-  
+
   return miceIDs.flatMap(mouseID => {
     const estrusData = new Array(1440).fill(0);
     const nonEstrusData = new Array(1440).fill(0);
@@ -176,6 +176,7 @@ function initializeChart() {
     .attr("text-anchor", "middle")
     .attr("fill", "#333")
     .style("font-size", "16px")
+    .text("Light On");
   // "Light Off" covers 12:00 pm to 11:59 pm (grey background).
   svg.append("text")
     .attr("class", "lightOffLabel")
@@ -184,6 +185,17 @@ function initializeChart() {
     .attr("text-anchor", "middle")
     .attr("fill", "#333")
     .style("font-size", "16px")
+    .text("Light Off");
+
+  // Add x-axis title: "Time of Day"
+  svg.append("text")
+    .attr("class", "x-axis-label")
+    .attr("x", width / 2)
+    .attr("y", height + margin.bottom - 10)
+    .attr("text-anchor", "middle")
+    .style("font-size", "14px")
+    .style("fill", "#333")
+    .text("Time of Day");
 
   // Draw axes. For the full-day view, force our custom tick values.
   xAxis = svg.append("g")
@@ -192,7 +204,7 @@ function initializeChart() {
       .tickValues(fullDayTicks)
       .tickFormat(customTimeFormat)
     );
-    
+
   yAxis = svg.append("g")
     .call(d3.axisLeft(yScale));
 
@@ -203,6 +215,41 @@ function initializeChart() {
     .attr("x", -height / 2)
     .style("text-anchor", "middle")
     .text("Temperature (°C)");
+
+  // Add a legend for "Light On" and "Light Off".
+  const legend = svg.append("g")
+    .attr("class", "legend")
+    .attr("transform", `translate(${width - 120}, 10)`);
+
+  // Legend item for Light On (white)
+  legend.append("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", 20)
+    .attr("height", 20)
+    .attr("fill", "white")
+    .attr("stroke", "black");
+
+  legend.append("text")
+    .attr("x", 25)
+    .attr("y", 15)
+    .style("font-size", "12px")
+    .attr("fill", "#333")
+
+  // Legend item for Light Off (grey)
+  legend.append("rect")
+    .attr("x", 0)
+    .attr("y", 25)
+    .attr("width", 20)
+    .attr("height", 20)
+    .attr("fill", LIGHTS_OFF_COLOR)
+    .attr("stroke", "black");
+
+  legend.append("text")
+    .attr("x", 25)
+    .attr("y", 40)
+    .style("font-size", "12px")
+    .attr("fill", "#333")
 
   // Add a brush along the x-axis.
   const brush = d3.brushX()
