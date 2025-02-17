@@ -169,22 +169,22 @@ function initializeChart() {
     .attr("fill", LIGHTS_OFF_COLOR);
 
   // Add labels for the lighting conditions using the constant scale.
-  svg.append("text")
-    .attr("class", "lightOnLabel")
-    .attr("x", constantXScale(new Date(2023, 0, 1, 6, 0))) // midpoint of 12 am–12 pm
-    .attr("y", 20)
-    .attr("text-anchor", "middle")
-    .attr("fill", "#333")
-    .style("font-size", "16px")
-    .text("Light On");
-  svg.append("text")
-    .attr("class", "lightOffLabel")
-    .attr("x", constantXScale(new Date(2023, 0, 1, 18, 0))) // midpoint of 12 pm–11:59 pm
-    .attr("y", 20)
-    .attr("text-anchor", "middle")
-    .attr("fill", "#333")
-    .style("font-size", "16px")
-    .text("Light Off");
+  // svg.append("text")
+  //   .attr("class", "lightOnLabel")
+  //   .attr("x", constantXScale(new Date(2023, 0, 1, 6, 0))) // midpoint of 12 am–12 pm
+  //   .attr("y", 20)
+  //   .attr("text-anchor", "middle")
+  //   .attr("fill", "#333")
+  //   .style("font-size", "16px")
+  //   .text("Light On");
+  // svg.append("text")
+  //   .attr("class", "lightOffLabel")
+  //   .attr("x", constantXScale(new Date(2023, 0, 1, 18, 0))) // midpoint of 12 pm–11:59 pm
+  //   .attr("y", 20)
+  //   .attr("text-anchor", "middle")
+  //   .attr("fill", "#333")
+  //   .style("font-size", "16px")
+  //   .text("Light Off");
 
   // Draw axes. For the full-day view, force our custom tick values.
   xAxis = svg.append("g")
