@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mouse Temperature Cycles</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Team D3: Visualizing Daily Temperature Cycles of Mice</h1>
+  <h1>Visualizing Daily Temperature Cycles of Mice</h1>
   
   <!-- Container holding the chart and the legend side by side -->
   <div class="chart-legend-container">
@@ -21,19 +21,28 @@
       <label class="legend-item">
         <input type="checkbox" id="nonEstrusCheckbox" checked>
         <span class="legend-color" style="background-color: #ffa500;"></span>
-        Non-Estrus Females
+        Females (Non-Estrus)
       </label>
       <label class="legend-item">
         <input type="checkbox" id="estrusCheckbox" checked>
         <span class="legend-color" style="background-color: #ff0000;"></span>
-        Estrus-Females
+        Females (Estrus)
       </label>
     </div>
   </div>
   
+  <!-- Legend -->
+  <div id="legend">
+    <span style="color: #3690c0;">■ Male</span>
+    <span style="color: #ffa500;">■ Female (Non-Estrus)</span>
+    <span style="color: #ff0000;">■ Female (Estrus)</span>
+    <span style="color: #6f6a6a;">■ Light On </span>
+    <span class="legend-light-off"></span> Light Off
+  </div>
+
   <!-- Reset button moved below the graph -->
   <div class="reset-container">
-    <button id="resetBrush">Reset Selection</button>
+    <button id="resetBrush">Reset Scope</button>
   </div>
 
   <div id="tooltip"></div>
