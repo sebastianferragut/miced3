@@ -1,23 +1,51 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 
+// Instead of a single "currentView", we now use an object to store which groups are enabled.
 let allTempData = [];
-let currentView = "all"; // "all", "male", "female", or "estrus"
+let selectedFilters = {
+  male: true,
+  estrus: true,
+  "non-estrus": true
+};
+
 const margin = { top: 30, right: 30, bottom: 50, left: 60 };
 const width = 1200 - margin.left - margin.right;
 const height = 600 - margin.top - margin.bottom;
 let svg, xScale, yScale, xAxis, yAxis;
-let originalXDomain, originalYDomain; // store initial domains for reset
+let originalXDomain, originalYDomain; // for reset
+// constantXScale remains for positioning static elements (like labels)
+let constantXScale;
 const tooltip = d3.select("#tooltip")
   .style("position", "absolute")
   .style("pointer-events", "none")
   .style("opacity", 0);
 
 const LIGHTS_OFF_COLOR = "rgba(0, 0, 0, 0.1)";
-const LIGHTS_CYCLE = 720;
 let globalYDomain;
 
 // Precompute an array of Date objects—one for each minute in the day.
 const times = d3.range(1440).map(i => new Date(2023, 0, 1, 0, i));
+
+// For the full-day view, define custom ticks.
+const fullDayTicks = [
+  new Date(2023, 0, 1, 0, 0),
+  new Date(2023, 0, 1, 3, 0),
+  new Date(2023, 0, 1, 6, 0),
+  new Date(2023, 0, 1, 9, 0),
+  new Date(2023, 0, 1, 12, 0),
+  new Date(2023, 0, 1, 15, 0),
+  new Date(2023, 0, 1, 18, 0),
+  new Date(2023, 0, 1, 21, 0),
+  new Date(2023, 0, 1, 23, 59)
+];
+
+// Custom tick format: if tick is exactly 11:59 pm, show that text.
+const customTimeFormat = d => {
+  if (d.getHours() === 23 && d.getMinutes() === 59) {
+    return "11:59 pm";
+  }
+  return d3.timeFormat("%-I %p")(d);
+};
 
 async function loadData() {
   const [maleTemp, femTemp] = await Promise.all([
@@ -30,7 +58,7 @@ async function loadData() {
     ...processMiceData(femTemp, "female")
   ];
 
-  // Compute the overall y domain using all data.
+  // Compute overall y domain using all data.
   const allTempValues = allTempData.flatMap(d => d.data);
   globalYDomain = [d3.min(allTempValues), d3.max(allTempValues)];
 
@@ -46,7 +74,7 @@ function rowConverter(d) {
 
 function processMiceData(dataset, gender) {
   const miceIDs = Object.keys(dataset[0]).filter(k => k !== "minuteIndex");
-  
+
   return miceIDs.flatMap(mouseID => {
     const estrusData = new Array(1440).fill(0);
     const nonEstrusData = new Array(1440).fill(0);
@@ -70,33 +98,30 @@ function processMiceData(dataset, gender) {
     const entries = [];
     if (gender === "female") {
       if (estrusDays > 0) {
-          entries.push({
-              id: mouseID,
-              gender,
-              type: "estrus",
-              estrus: true,  // Explicitly marking estrus
-              data: estrusData.map(v => v / estrusDays)
-          });
-      }
-      if (nonEstrusDays > 0) {
-          entries.push({
-              id: mouseID,
-              gender,
-              type: "non-estrus",
-              estrus: false,  // Explicitly marking non-estrus
-              data: nonEstrusData.map(v => v / nonEstrusDays)
-          });
-      }
-  } else {
-      entries.push({
+        entries.push({
           id: mouseID,
           gender,
-          type: "male",
-          estrus: false,  // Males should always be non-estrus
-          data: nonEstrusData.map(v => v / 14)
+          type: "estrus",
+          data: estrusData.map(v => v / estrusDays)
+        });
+      }
+      if (nonEstrusDays > 0) {
+        entries.push({
+          id: mouseID,
+          gender,
+          type: "non-estrus",
+          data: nonEstrusData.map(v => v / nonEstrusDays)
+        });
+      }
+    } else {
+      entries.push({
+        id: mouseID,
+        gender,
+        type: "male",
+        data: nonEstrusData.map(v => v / 14)
       });
-  }
-  return entries;  
+    }
+    return entries;
   });
 }
 
@@ -108,7 +133,7 @@ function initializeChart() {
     .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-  // Add a clipPath so that lines are contained within the chart area.
+  // Add a clipPath so that lines are contained.
   svg.append("defs")
     .append("clipPath")
       .attr("id", "clip")
@@ -116,41 +141,68 @@ function initializeChart() {
       .attr("width", width)
       .attr("height", height);
 
-  // xScale is time-based.
+  // xScale is time-based. Domain from 12:00 am to 11:59 pm.
   xScale = d3.scaleTime()
-    .domain([new Date(2023, 0, 1), new Date(2023, 0, 1, 23, 59)])
+    .domain([new Date(2023, 0, 1, 0, 0), new Date(2023, 0, 1, 23, 59)])
     .range([0, width]);
 
-  // yScale based on the global data.
+  // yScale based on global data.
   yScale = d3.scaleLinear()
     .domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02])
     .range([height, 0]);
 
-  // Save original domains for resetting.
+  // Save original domains.
   originalXDomain = xScale.domain();
   originalYDomain = yScale.domain();
 
-  // Light/dark background.
-  const startTime = new Date(2023, 0, 1);
-  [0, 1].forEach(i => {
-    const start = new Date(startTime.getTime() + i * LIGHTS_CYCLE * 60000);
-    const end = new Date(start.getTime() + LIGHTS_CYCLE * 60000);
-    svg.append("rect")
-      .attr("x", xScale(start))
-      .attr("width", xScale(end) - xScale(start))
-      .attr("height", height)
-      .attr("fill", i % 2 === 0 ? LIGHTS_OFF_COLOR : "none");
-  });
+  // Create a constant scale for positioning static elements (like labels)
+  constantXScale = d3.scaleTime()
+    .domain(originalXDomain)
+    .range([0, width]);
 
-  // Draw axes.
+  // Draw a grey background rectangle for "lights off".
+  svg.append("rect")
+    .attr("class", "background")
+    .attr("y", 0)
+    .attr("height", height)
+    .attr("fill", LIGHTS_OFF_COLOR);
+
+  // Add labels for the lighting conditions.
+  // "Light On" covers midnight to noon (white background).
+  svg.append("text")
+    .attr("class", "lightOnLabel")
+    .attr("x", constantXScale(new Date(2023, 0, 1, 6, 0))) // midpoint of 12 am–12 pm
+    .attr("y", 20)
+    .attr("text-anchor", "middle")
+    .attr("fill", "#333")
+    .style("font-size", "16px")
+  // "Light Off" covers 12:00 pm to 11:59 pm (grey background).
+  svg.append("text")
+    .attr("class", "lightOffLabel")
+    .attr("x", constantXScale(new Date(2023, 0, 1, 18, 0))) // midpoint of 12 pm–11:59 pm
+    .attr("y", 20)
+    .attr("text-anchor", "middle")
+    .attr("fill", "#333")
+    .style("font-size", "16px")
+
+  // Add x-axis title: "Time of Day"
+  svg.append("text")
+    .attr("class", "x-axis-label")
+    .attr("x", width / 2)
+    .attr("y", height + margin.bottom - 10)
+    .attr("text-anchor", "middle")
+    .style("font-size", "14px")
+    .style("fill", "#333")
+    .text("Time of Day");
+
+  // Draw axes. For the full-day view, force our custom tick values.
   xAxis = svg.append("g")
     .attr("transform", `translate(0,${height})`)
-    .call(
-      d3.axisBottom(xScale)
-        .ticks(d3.timeHour.every(3))
-        .tickFormat(d3.timeFormat("%-I %p"))
+    .call(d3.axisBottom(xScale)
+      .tickValues(fullDayTicks)
+      .tickFormat(customTimeFormat)
     );
-    
+
   yAxis = svg.append("g")
     .call(d3.axisLeft(yScale));
 
@@ -162,31 +214,153 @@ function initializeChart() {
     .style("text-anchor", "middle")
     .text("Temperature (°C)");
 
-  // Add a brush along the x-axis for time-range selection.
+  // Add a legend for "Light On" and "Light Off".
+  const legend = svg.append("g")
+    .attr("class", "legend")
+    .attr("transform", `translate(${width - 120}, 10)`);
+
+  // Legend item for Light On (white)
+  legend.append("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", 20)
+    .attr("height", 20)
+    .attr("fill", "white")
+    .attr("stroke", "black");
+
+  legend.append("text")
+    .attr("x", 25)
+    .attr("y", 15)
+    .style("font-size", "12px")
+    .attr("fill", "#333")
+    .text("Light On");
+
+
+  // Legend item for Light Off (grey)
+  legend.append("rect")
+    .attr("x", 0)
+    .attr("y", 25)
+    .attr("width", 20)
+    .attr("height", 20)
+    .attr("fill", LIGHTS_OFF_COLOR)
+    .attr("stroke", "black");
+    
+
+  legend.append("text")
+    .attr("x", 25)
+    .attr("y", 40)
+    .style("font-size", "12px")
+    .attr("fill", "#333")
+    .text("Light Off");
+
+  // Add a brush along the x-axis.
   const brush = d3.brushX()
     .extent([[0, 0], [width, height]])
     .on("end", brushed);
-  
   svg.append("g")
     .attr("class", "brush")
     .call(brush);
+
+  // Initial background update.
+  updateBackground();
+}
+
+function updateBackground() {
+  // Set the grey interval to represent "lights off": 12:00 pm to 11:59 pm.
+  const greyStart = new Date(2023, 0, 1, 12, 0);
+  const greyEnd = new Date(2023, 0, 1, 23, 59);
+
+  // Get the currently visible time range from xScale.
+  const currentDomain = xScale.domain();
+
+  // Calculate the overlap between the visible domain and the fixed grey interval.
+  const overlapStart = currentDomain[0] > greyStart ? currentDomain[0] : greyStart;
+  const overlapEnd = currentDomain[1] < greyEnd ? currentDomain[1] : greyEnd;
+
+  // If there is an overlap, draw the grey rectangle to cover that portion.
+  if (overlapStart < overlapEnd) {
+    const x = xScale(overlapStart);
+    const w = xScale(overlapEnd) - xScale(overlapStart);
+    svg.select("rect.background")
+      .attr("x", x)
+      .attr("width", w)
+      .attr("visibility", "visible");
+  } else {
+    // No overlap: hide the grey rectangle.
+    svg.select("rect.background")
+      .attr("visibility", "hidden");
+  }
+}
+
+// Dynamically update the x-axis ticks based on the zoom level.
+function updateXAxis() {
+  const currentDomain = xScale.domain();
+  const domainDuration = currentDomain[1] - currentDomain[0];
+
+  // If we're at the full-day view, use the custom fullDayTicks.
+  if (
+    currentDomain[0].getTime() === originalXDomain[0].getTime() &&
+    currentDomain[1].getTime() === originalXDomain[1].getTime()
+  ) {
+    xAxis.transition().duration(250)
+      .call(d3.axisBottom(xScale)
+        .tickValues(fullDayTicks)
+        .tickFormat(customTimeFormat)
+      );
+  } else {
+    let tickInterval, tickFormat;
+    const oneHour = 60 * 60 * 1000;
+    const sixHours = 6 * oneHour;
+    const tenMinutes = 10 * 60 * 1000;
+
+    if (domainDuration > sixHours) {
+      // For zoom levels spanning more than 6 hours, show ticks every hour.
+      tickInterval = d3.timeHour.every(1);
+      tickFormat = d3.timeFormat("%-I %p");
+    } else if (domainDuration > oneHour) {
+      // For zoom levels spanning between 1 and 6 hours, show ticks every 15 minutes.
+      tickInterval = d3.timeMinute.every(15);
+      tickFormat = d3.timeFormat("%-I:%M %p");
+    } else if (domainDuration > tenMinutes) {
+      // For zoom levels spanning between 10 minutes and 1 hour, show ticks every 5 minutes.
+      tickInterval = d3.timeMinute.every(5);
+      tickFormat = d3.timeFormat("%-I:%M %p");
+    } else {
+      // For very zoomed-in views (less than 10 minutes), show ticks every minute.
+      tickInterval = d3.timeMinute.every(1);
+      tickFormat = d3.timeFormat("%-I:%M:%S %p");
+    }
+
+    xAxis.transition().duration(250)
+      .call(d3.axisBottom(xScale)
+        .ticks(tickInterval)
+        .tickFormat(tickFormat)
+      );
+  }
+}
+
+function getFilteredData() {
+  // Filter based on the selected filters.
+  return allTempData.filter(d => {
+    if (d.gender === "male") return selectedFilters.male;
+    if (d.gender === "female") {
+      if (d.type === "estrus") return selectedFilters.estrus;
+      if (d.type === "non-estrus") return selectedFilters["non-estrus"];
+    }
+    return false;
+  });
 }
 
 function updateChart() {
-  const filteredData = allTempData.filter(d => 
-    currentView === "all" ? (d.gender !== "female" || d.type === "non-estrus") :  
-    (currentView === "female" ? d.gender === "female" :  
-    (currentView === "estrus" ? d.estrus === true :  
-    d.gender === currentView))
-  );
+  const filteredData = getFilteredData();
 
-
-  // Reset y scale to the global domain in case the view has changed.
+  // Reset y-scale to global domain.
   yScale.domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02]);
   yAxis.transition().duration(250).call(d3.axisLeft(yScale));
-  xAxis.transition().duration(250).call(d3.axisBottom(xScale));
+  updateXAxis();
+  updateBackground();
 
-  // Create a line generator that uses our precomputed time array.
+  // Create a line generator using our precomputed time array.
   const lineGenerator = d3.line()
     .x((d, i) => xScale(times[i]))
     .y(d => yScale(d))
@@ -209,8 +383,8 @@ function updateChart() {
     .merge(lines)
     .attr("d", d => lineGenerator(d.data))
     .attr("stroke", d => {
-      if (d.gender === "male") return "#3690c0";  // Blue for males
-      return d.type === "estrus" ? "#ff7f0e" : "#ff0000"; // Orange for estrus, Red for non-estrus females
+      if (d.gender === "male") return "#3690c0";
+      return d.type === "estrus" ? "#ff0000" : "#ffa500";
     });
 
   // Remove old lines.
@@ -218,19 +392,18 @@ function updateChart() {
 }
 
 function brushed(event) {
-  if (!event.selection) return; // Exit if no selection.
+  if (!event.selection) return; // exit if no selection
 
-  // For a time-range selection, only the x coordinates matter.
   const [x0, x1] = event.selection;
   const newXDomain = [xScale.invert(x0), xScale.invert(x1)];
   xScale.domain(newXDomain);
 
-  // Compute the corresponding minute indices.
+  // Compute corresponding minute indices.
   const startIndex = Math.max(0, Math.floor((newXDomain[0] - new Date(2023, 0, 1)) / 60000));
   const endIndex = Math.min(1439, Math.ceil((newXDomain[1] - new Date(2023, 0, 1)) / 60000));
 
-  // Recompute the y domain based on data in the selected time window.
-  const filteredData = allTempData.filter(d => currentView === "all" || d.gender === currentView);
+  // Recompute y domain based on data in the selected time window.
+  const filteredData = getFilteredData();
   let yMin = Infinity, yMax = -Infinity;
   filteredData.forEach(d => {
     const subData = d.data.slice(startIndex, endIndex + 1);
@@ -245,16 +418,15 @@ function brushed(event) {
   }
   yScale.domain([yMin * 0.98, yMax * 1.02]);
 
-  // Update axes.
-  xAxis.transition().duration(500).call(d3.axisBottom(xScale));
+  updateXAxis();
   yAxis.transition().duration(500).call(d3.axisLeft(yScale));
+  updateBackground();
 
-  // Update lines using the same line generator.
+  // Update lines.
   const lineGenerator = d3.line()
     .x((d, i) => xScale(times[i]))
     .y(d => yScale(d))
     .curve(d3.curveMonotoneX);
-
   svg.selectAll(".mouse-line")
     .transition().duration(500)
     .attr("d", d => lineGenerator(d.data));
@@ -264,38 +436,32 @@ function brushed(event) {
 }
 
 function resetBrush() {
-  // Reset scales to their original domains.
+  // Reset scales to original domains.
   xScale.domain(originalXDomain);
   yScale.domain(originalYDomain);
 
-  xAxis.transition().duration(500).call(d3.axisBottom(xScale));
+  updateXAxis();
   yAxis.transition().duration(500).call(d3.axisLeft(yScale));
+  updateBackground();
 
   const lineGenerator = d3.line()
     .x((d, i) => xScale(times[i]))
     .y(d => yScale(d))
     .curve(d3.curveMonotoneX);
-
   svg.selectAll(".mouse-line")
     .transition().duration(500)
     .attr("d", d => lineGenerator(d.data));
-
-  // Clear brush selection without affecting filters.
-  svg.select(".brush").call(d3.brush().move, null);
 }
 
 function showTooltip(event, mouse) {
   const hoveredId = mouse.id;
-  
   d3.selectAll(".mouse-line")
     .filter(d => d.id === hoveredId)
     .attr("opacity", 1)
     .attr("stroke-width", 2.5);
-
   d3.selectAll(".mouse-line")
     .filter(d => d.id !== hoveredId)
     .attr("opacity", 0.1);
-
   tooltip.style("opacity", 1)
     .html(`
       <strong>${mouse.id}</strong><br>
@@ -319,21 +485,17 @@ function hideTooltip() {
 document.addEventListener("DOMContentLoaded", () => {
   loadData();
 
-  // Button event handlers.
-  d3.select("#allBtn").on("click", () => {
-    currentView = "all";
+  // Listen to changes in the checkboxes.
+  d3.select("#maleCheckbox").on("change", function() {
+    selectedFilters.male = this.checked;
     updateChart();
   });
-  d3.select("#maleBtn").on("click", () => {
-    currentView = "male";
+  d3.select("#estrusCheckbox").on("change", function() {
+    selectedFilters.estrus = this.checked;
     updateChart();
   });
-  d3.select("#femaleBtn").on("click", () => {
-    currentView = "female";
-    updateChart();
-  });
-  d3.select("#estrusBtn").on("click", () => {
-    currentView = "estrus";
+  d3.select("#nonEstrusCheckbox").on("change", function() {
+    selectedFilters["non-estrus"] = this.checked;
     updateChart();
   });
 
