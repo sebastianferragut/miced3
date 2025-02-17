@@ -8,9 +8,9 @@ let selectedFilters = {
   "non-estrus": true
 };
 
-const margin = { top: 30, right: 30, bottom: 50, left: 60 };
-const width = 1200 - margin.left - margin.right;
-const height = 600 - margin.top - margin.bottom;
+const margin = { top: 30, right: 30, bottom: 60, left: 60 };
+let width = window.innerWidth * 0.8 - margin.left - margin.right;
+let height = window.innerHeight * 0.6 - margin.top - margin.bottom;
 let svg, xScale, yScale, xAxis, yAxis;
 let originalXDomain, originalYDomain; // for reset
 // constantXScale remains for positioning static elements (like labels)
@@ -46,6 +46,65 @@ const customTimeFormat = d => {
   }
   return d3.timeFormat("%-I %p")(d);
 };
+
+function updateDimensions() {
+  // Update width and height based on current window dimensions.
+  width = window.innerWidth * 0.8 - margin.left - margin.right;
+  height = Math.max(window.innerHeight * 0.6 - margin.top - margin.bottom, 400); // Set a minimum height of 400px
+
+  // Update SVG dimensions.
+  d3.select("svg")
+    .attr("width", width + margin.left + margin.right + 150) // Extra space for legend
+    .attr("height", height + margin.top + margin.bottom + 40); // Extra space for x-axis label
+
+  // Update scales with new ranges.
+  xScale.range([0, width]);
+  yScale.range([height, 0]);
+
+  // Update axes.
+  xAxis.attr("transform", `translate(0,${height})`).call(
+    d3.axisBottom(xScale)
+      .tickValues(fullDayTicks)
+      .tickFormat(customTimeFormat)
+  );
+  yAxis.call(d3.axisLeft(yScale));
+
+  // Update clipPath rectangle.
+  d3.select("#clip rect")
+    .attr("width", width)
+    .attr("height", height);
+
+  // Update background rectangle.
+  svg.select("rect.background")
+    .attr("width", width)
+    .attr("height", height);
+
+  // Update Light On/Off text positions.
+  d3.select(".lightOnLabel")
+    .attr("x", constantXScale(new Date(2023, 0, 1, 6, 0))); // Light On at 6am
+  d3.select(".lightOffLabel")
+    .attr("x", constantXScale(new Date(2023, 0, 1, 18, 0))); // Light Off at 6pm
+
+  // Update x-axis and y-axis label positions.
+  d3.select(".x-axis-label")
+    .attr("x", width / 2)
+    .attr("y", height + margin.bottom - 10);
+  d3.select(".y-axis-label")
+    .attr("x", -height / 2)
+    .attr("y", -margin.left + 15);
+
+  // Update brush extent.
+  svg.select(".brush").call(d3.brushX().extent([[0, 0], [width, height]]));
+
+  // **Move the legend to the right of the graph**
+  d3.select(".legend")
+    .attr("transform", `translate(${width + 20}, 20)`); // Place legend to the right
+
+  // Redraw background and the chart (including lines).
+  updateBackground();
+  updateChart();
+}
+
 
 async function loadData() {
   const [maleTemp, femTemp] = await Promise.all([
@@ -502,3 +561,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Reset brush button.
   d3.select("#resetBrush").on("click", resetBrush);
 });
+
+// Resize the chart when the window resizes
+window.addEventListener("resize", updateDimensions);
