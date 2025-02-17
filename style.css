@@ -31,7 +31,9 @@ h1 {
   border-radius: 10px;
   padding: 20px;
   box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
-  width: 80%;  /* Adjust the width of the chart container */
+  width: 100%;  /* Adjust the width of the chart container */
+  max-width: 1200px; /* Ensures it doesn’t get too large */
+  height: auto;
 }
 
 /* Legend box styles positioned to the right */
