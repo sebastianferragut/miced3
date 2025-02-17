@@ -7,32 +7,45 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Visualizing Mouse Daily Temperature Cycles</h1>
-  <div class="controls">
-    <button id="allBtn">All Mice</button>
-    <button id="maleBtn">Male</button>
-    <button id="femaleBtn">Female (Estrus and Non-Estrus)</button>
-    <button id="estrusBtn">Female (Estrus)</button>
-    <button id="resetBrush">Reset Scope</button> 
+  <h1>Team D3: Visualizing Daily Temperature Cycles of Mice</h1>
+  
+  <!-- Container holding the chart and the legend side by side -->
+  <div class="chart-legend-container">
+    <div id="chart-container"></div>
+    <div class="legend">
+      <label class="legend-item">
+        <input type="checkbox" id="maleCheckbox" checked>
+        <span class="legend-color" style="background-color: #3690c0;"></span>
+        Males
+      </label>
+      <label class="legend-item">
+        <input type="checkbox" id="nonEstrusCheckbox" checked>
+        <span class="legend-color" style="background-color: #ffa500;"></span>
+        Non-Estrus Females
+      </label>
+      <label class="legend-item">
+        <input type="checkbox" id="estrusCheckbox" checked>
+        <span class="legend-color" style="background-color: #ff0000;"></span>
+        Estrus-Females
+      </label>
+    </div>
+  </div>
+  
+  <!-- Reset button moved below the graph -->
+  <div class="reset-container">
+    <button id="resetBrush">Reset Selection</button>
   </div>
 
-  <div id="legend">
-    <span style="color: #3690c0;">■ Male</span>
-    <span style="color: #ff0000;">■ Female (Non-Estrus)</span>
-    <span style="color: #ff7f0e;">■ Female (Estrus)</span>
-  </div>
-
-  <div id="chart-container"></div>
   <div id="tooltip"></div>
-  <h2>Team Members</h2>
+
+  <h2>Team D3</h2>
   <p>Sebastian Ferragut (sferragut@ucsd.edu, A17263077)</p>
   <p>Khoi Phan (k8phan@ucsd.edu, A17326271)</p>
   <p>Tommy Li (wal016@ucsd.edu, A18103662)</p>
   <p>Nathan Oliver (noliver@ucsd.edu, A16768104)</p>
 
-  <h2>Writeup</h2>
-  <p>WIP Writewup will go here</p>
+  <h3>Write Up</h3>
+
   <script type="module" src="main.js"></script>
 </body>
 </html>
-<!--for new branch -->
