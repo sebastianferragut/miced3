@@ -31,8 +31,7 @@ h1 {
 /* Chart container styles */
 #chart-container {
   flex-grow: 1;
-  min-width: 60%;
-  max-width: 100%;
+  width: 100%;
   height: auto;
   position: relative;
   background: transparent;
@@ -40,7 +39,6 @@ h1 {
   padding: 20px;
   padding-bottom: 40px;
   box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
-  width: 80%;  /* Adjust the width of the chart container */
 }
 
 .legend {
@@ -56,11 +54,9 @@ h1 {
 }
 
 svg {
-  position: relative;
-  z-index: 2;
   width: 100%;
-  height: auto;
-  min-height: 400px;
+  height: 100%;
+  display: block;
 }
 
 /* Each legend item: checkbox with color swatch and label text */
