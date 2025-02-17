@@ -7,11 +7,19 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Visualizing Daily Temperature Cycles of Mice</h1>
+  <h1 class="underline">Visualizing Daily Temperature Cycles of Mice</h1>
   
   <!-- Container holding the chart and the legend side by side -->
   <div class="chart-legend-container">
-    <div id="chart-container"></div>
+    <!-- The main box containing the chart and reset button -->
+    <div id="chart-container">
+      <!-- Reset button inside the chart container -->
+      <div class="reset-container">
+        <button id="resetBrush">Reset Scope</button>
+      </div>
+    </div>
+    
+    <!-- The legend box beside the chart -->
     <div class="legend">
       <label class="legend-item">
         <input type="checkbox" id="maleCheckbox" checked>
@@ -28,32 +36,25 @@
         <span class="legend-color" style="background-color: #ff0000;"></span>
         Females (Estrus)
       </label>
+      
+      <!-- Light On/Off legend inside the chart container -->
+      <div class="light-legend">
+        <span style="color: #6f6a6a;">■ Light On</span>
+        <span class="legend-light-off"></span> Light Off
+      </div>
     </div>
   </div>
-  
-  <!-- Legend -->
-  <div id="legend">
-    <span style="color: #3690c0;">■ Male</span>
-    <span style="color: #ffa500;">■ Female (Non-Estrus)</span>
-    <span style="color: #ff0000;">■ Female (Estrus)</span>
-    <span style="color: #6f6a6a;">■ Light On </span>
-    <span class="legend-light-off"></span> Light Off
-  </div>
 
-  <!-- Reset button moved below the graph -->
-  <div class="reset-container">
-    <button id="resetBrush">Reset Scope</button>
-  </div>
+  <!-- Team D3 Section -->
+  <h2 class="underline">Team D3</h2>
+  <ul>
+    <li>Sebastian Ferragut (sferragut@ucsd.edu, A17263077)</li>
+    <li>Khoi Phan (k8phan@ucsd.edu, A17326271)</li>
+    <li>Tommy Li (wal016@ucsd.edu, A18103662)</li>
+    <li>Nathan Oliver (noliver@ucsd.edu, A16768104)</li>
+  </ul>
 
-  <div id="tooltip"></div>
-
-  <h2>Team D3</h2>
-  <p>Sebastian Ferragut (sferragut@ucsd.edu, A17263077)</p>
-  <p>Khoi Phan (k8phan@ucsd.edu, A17326271)</p>
-  <p>Tommy Li (wal016@ucsd.edu, A18103662)</p>
-  <p>Nathan Oliver (noliver@ucsd.edu, A16768104)</p>
-
-  <h3>Write Up</h3>
+  <h2 class="underline">Write Up</h2>
 
   <script type="module" src="main.js"></script>
 </body>

@@ -193,7 +193,7 @@ function initializeChart() {
       .tickValues(fullDayTicks)
       .tickFormat(customTimeFormat)
     );
-    
+
   yAxis = svg.append("g")
     .call(d3.axisLeft(yScale));
 
