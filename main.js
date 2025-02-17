@@ -502,3 +502,27 @@ document.addEventListener("DOMContentLoaded", () => {
   // Reset brush button.
   d3.select("#resetBrush").on("click", resetBrush);
 });
+
+function getChartDimensions() {
+  const containerWidth = document.getElementById("chart-container").clientWidth;
+  const containerHeight = Math.min(600, window.innerHeight * 0.6);
+  return {
+    width: containerWidth - margin.left - margin.right,
+    height: containerHeight - margin.top - margin.bottom
+  };
+}
+
+function resizeChart() {
+  const { width, height } = getChartDimensions();
+
+  xScale.range([0, width]);
+  yScale.range([height, 0]);
+
+  d3.select("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom);
+
+  updateChart();
+}
+
+window.addEventListener("resize", resizeChart);
