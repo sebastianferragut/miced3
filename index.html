@@ -51,6 +51,19 @@
   </ul>
 
   <h2 class="underline">Write Up</h2>
+  <p>
+    <strong>Design Decision Rationale </strong>
+    <br><br>
+    We chose distinct colors to differentiate the groups of mice. There aren’t necessarily any common themes for these, so we used contrasting colors to highlight differences, using blue for males, and orange and red for females (non-estrus and estrus). We have the x-axis representing time with custom ticks for clarity, from 12am to 11:59 pm, matching our data cycle. Additionally, we have a gray and white background in the visualization to add the dimension of lights on and off, as was done in the experiment. We effectively averaged over the 14 days of mice data to get a look at the average day cycle of each mouse. For the y-axis, we have the temperature in Celsius. As for the chart as a whole, we encoded each mouse’s data as a line to depict trends and differences between the genders. Temperature data was encoded this way because a line chart is effective for displaying trends over time. This visualization allows for exploration of patterns that reveal insights on responses to the environment, as well as biological systems such as circadian rhythm. Both the scales and lines representing data dynamically adapt with the interaction. Users can brush to zoom into selected time ranges, allowing for exploration and a closer look at trends and changes in the data. We have a button to reset the view to the default 12am to 11:59 view. The 24 hour view allows for observation of the circadian rhythm with respect to light and dark cycles. In our legend, we have filters as checkboxes that toggle visibility of male, female (estrus), and female (non-estrus) data to be able to compare different statuses. We also have tooltips placed dynamically on the cursor that allow the user to hover over a line and see which mouse that line corresponds to. If hovering over a female mouse with both female toggles on, the user will have both corresponding lines highlighted by hovering over just one of them. The page is also resizable as a whole, with the labels and y/x ticks adjusting dynamically from brushing and resizing. 
+    <br><br>
+In terms of alternatives, we considered other color encodings but ultimately landed on bright distinct colors. We also considered different interaction types, such as a slider for the time range selection, and buttons for the filters. We arrived at our ultimate choices through trial and error, and investigating what ways we could improve the visual design for simplicity and clarity. We found that brushing provided a more fluid way to explore trends dynamically, whereas sliders imposed a fixed range. Buttons for filtering were more intuitive than dropdowns, which allowed users to compare categories quickly without disrupting engagement.   
+
+
+<br><br>
+<strong>Development Process Overview</strong><br><br>
+For our development process, we split up the work fairly evenly. We each worked on some of the code. Sebastian built a framework for processing the data and setup the GitHub repo and website, and also helped out here and there with bugfixes, and also drafted this writeup with feedback from the other team members. Nathan built out the core of the functionality, from refining the processing to creating the D3 visualization and interaction functions. Tommy worked on the filtering aspect and ironing out some bugs. Khoi worked on the CSS style, the webpage format and fixed some of the bugs and functionality. We all gave feedback on each other’s work and helped to debug. In terms of time spent developing, we likely spent at least 20 hours or more cumulatively, including time for brainstorming and coding. The aspects that took the most time were developing the main part of the D3 visualization (creating the plot and interaction). We also spent a lot of time fixing bugs. 
+
+  </p>
 
   <script type="module" src="main.js"></script>
 </body>

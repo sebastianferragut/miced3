@@ -21,6 +21,15 @@ h2 {
   margin-bottom: 10px;
 }
 
+/*Add styling for p*/
+p {
+  margin-left: 10px;
+  margin-right: 300px;
+  padding-bottom: 2.5em;
+  font-size: .9em;
+  text-align: left;
+}
+
 .underline {
   text-decoration: underline;
 }
