@@ -22,6 +22,9 @@ const tooltip = d3.select("#tooltip")
 const LIGHTS_OFF_COLOR = "rgba(0, 0, 0, 0.1)";
 let globalYDomain;
 
+// Define the smoothing window (in minutes)
+const SMOOTH_WINDOW = 5;
+
 // Precompute an array of Date objects—one for each minute in the day.
 const times = d3.range(1440).map(i => new Date(2023, 0, 1, 0, i));
 
@@ -188,6 +191,20 @@ function computeAggregatedLine(dataArray) {
     });
   });
   return aggregated.map(v => v / count);
+}
+
+// Smoothing function: returns a new data array with the data values averaged over a window.
+function smoothData(dataArray, window_size) {
+  return dataArray.map(entry => ({
+    id: entry.id,
+    gender: entry.gender,
+    type: entry.type,
+    data: entry.data.map((_, i, arr) => {
+      const start = Math.max(0, i - Math.floor(window_size / 2));
+      const end = Math.min(arr.length, i + Math.floor(window_size / 2) + 1);
+      return d3.mean(arr.slice(start, end));
+    })
+  }));
 }
 
 // Returns the data to display based on the expanded state and filters.
@@ -396,7 +413,10 @@ function updateXAxis() {
 }
 
 function updateChart() {
+  // Get the current chart data based on filters and expansion state...
   const chartData = getChartData();
+  // Apply smoothing to all lines using the defined window size.
+  const smoothedData = smoothData(chartData, SMOOTH_WINDOW);
 
   // Always use the full global y-domain with padding.
   yScale.domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02]);
@@ -410,7 +430,7 @@ function updateChart() {
     .curve(d3.curveMonotoneX);
 
   const lines = svg.selectAll(".mouse-line")
-    .data(chartData, d => d.id);
+    .data(smoothedData, d => d.id);
 
   lines.enter()
     .append("path")
@@ -433,7 +453,7 @@ function updateChart() {
       })
       .attr("stroke-width", d => d.id.includes("avg") ? 3 : 1.5)
       .attr("opacity", 0.7);
-      
+
   lines.exit().remove();
   
   // Bring aggregated (avg) lines to the front.
