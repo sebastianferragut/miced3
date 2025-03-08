@@ -7,7 +7,7 @@ let expandedGroups = { male: false, estrus: false, "non-estrus": false };
 let selectedFilters = { male: true, estrus: true, "non-estrus": true };
 
 const margin = { top: 30, right: 30, bottom: 60, left: 60 };
-// Shrink the chart width to avoid horizontal scrolling (using 55% of window width)
+// Use 55% of the window width for the chart to prevent horizontal scrolling.
 let width = window.innerWidth * 0.55 - margin.left - margin.right;
 let height = Math.max(window.innerHeight * 0.65 - margin.top - margin.bottom, 400);
 let svg, xScale, yScale, xAxis, yAxis;
@@ -292,6 +292,37 @@ function initializeChart() {
     .style("text-anchor", "middle")
     .text("Temperature (°C)");
 
+  // Add a light conditions legend (inside the chart)
+  const lightLegend = svg.append("g")
+    .attr("class", "light-legend")
+    .attr("transform", `translate(${width - 120}, 10)`);
+    
+  lightLegend.append("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("width", 20)
+    .attr("height", 20)
+    .attr("fill", "white")
+    .attr("stroke", "black");
+    
+  lightLegend.append("text")
+    .attr("x", 25)
+    .attr("y", 15)
+    .text("Light On");
+    
+  lightLegend.append("rect")
+    .attr("x", 0)
+    .attr("y", 25)
+    .attr("width", 20)
+    .attr("height", 20)
+    .attr("fill", LIGHTS_OFF_COLOR)
+    .attr("stroke", "black");
+    
+  lightLegend.append("text")
+    .attr("x", 25)
+    .attr("y", 40)
+    .text("Light Off");
+
   // Add a brush along the x-axis.
   brush = d3.brushX()
     .extent([[0, 0], [width, height]])
@@ -386,7 +417,7 @@ function updateChart() {
       .attr("class", "mouse-line")
       .attr("clip-path", "url(#clip)")
       .attr("fill", "none")
-      .attr("stroke-width", 1.5)
+      .attr("stroke-width", d => d.id.includes("avg") ? 3 : 1.5)
       // For individual (non-avg) lines, start with 0 opacity to animate fade-in.
       .attr("opacity", d => d.id.includes("avg") ? 0.7 : 0)
       .on("mouseover", showTooltip)
@@ -400,9 +431,15 @@ function updateChart() {
         if (d.gender === "male") return "#3690c0";
         return d.type === "estrus" ? "#ff0000" : "#ffa500";
       })
+      .attr("stroke-width", d => d.id.includes("avg") ? 3 : 1.5)
       .attr("opacity", 0.7);
-
-  lines.exit().remove(); 
+      
+  lines.exit().remove();
+  
+  // Bring aggregated (avg) lines to the front.
+  svg.selectAll(".mouse-line")
+    .filter(d => d.id.includes("avg"))
+    .raise();
 }
 
 function brushed(event) {
@@ -449,7 +486,7 @@ function showTooltip(event, mouse) {
   d3.selectAll(".mouse-line")
     .filter(d => d.id === hoveredId)
     .attr("opacity", 1)
-    .attr("stroke-width", 2.5);
+    .attr("stroke-width", d => d.id.includes("avg") ? 3 : 2.5);
   // Make non-hovered lines only slightly dim (opacity 0.5)
   d3.selectAll(".mouse-line")
     .filter(d => d.id !== hoveredId)
@@ -470,7 +507,7 @@ function moveTooltip(event) {
 function hideTooltip() {
   d3.selectAll(".mouse-line")
     .attr("opacity", 0.7)
-    .attr("stroke-width", 1.5);
+    .attr("stroke-width", d => d.id.includes("avg") ? 3 : 1.5);
   tooltip.style("opacity", 0);
 }
 

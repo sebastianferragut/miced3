@@ -48,7 +48,7 @@ p {
 /* Chart container styles */
 #chart-container {
   width: calc(100% - 250px); /* Leave space for sidebar */
-  height: 65vh; /* Increased vertical length */
+  height: 65vh;
   position: relative;
   background: transparent;
   border-radius: 10px;
@@ -112,7 +112,7 @@ p {
   background-color: darkgrey;
 }
 
-/* Tooltip */
+/* Tooltip styling */
 #tooltip {
   position: absolute;
   padding: 10px;
@@ -122,6 +122,15 @@ p {
   pointer-events: none;
   font-size: 14px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Light conditions legend inside the chart */
+.light-legend {
+  font-size: 12px;
+}
+
+.light-legend text {
+  fill: #333;
 }
 
 /* SVG styling */
