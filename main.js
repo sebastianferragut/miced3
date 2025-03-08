@@ -4,10 +4,12 @@ import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 let allTempData = [];
 let aggregatedMale, aggregatedFemaleEstrus, aggregatedFemaleNonEstrus;
 let expandedGroups = { male: false, estrus: false, "non-estrus": false };
+let selectedFilters = { male: true, estrus: true, "non-estrus": true };
 
 const margin = { top: 30, right: 30, bottom: 60, left: 60 };
-let width = window.innerWidth * 0.8 - margin.left - margin.right;
-let height = Math.max(window.innerHeight * 0.6 - margin.top - margin.bottom, 400);
+// Shrink the chart width to avoid horizontal scrolling (using 55% of window width)
+let width = window.innerWidth * 0.55 - margin.left - margin.right;
+let height = Math.max(window.innerHeight * 0.65 - margin.top - margin.bottom, 400);
 let svg, xScale, yScale, xAxis, yAxis;
 let originalXDomain, originalYDomain;
 let constantXScale;
@@ -23,7 +25,7 @@ let globalYDomain;
 // Precompute an array of Date objects—one for each minute in the day.
 const times = d3.range(1440).map(i => new Date(2023, 0, 1, 0, i));
 
-// For the full-day view, define custom ticks.
+// Custom ticks for full-day view.
 const fullDayTicks = [
   new Date(2023, 0, 1, 0, 0),
   new Date(2023, 0, 1, 3, 0),
@@ -45,8 +47,8 @@ const customTimeFormat = d => {
 };
 
 function updateDimensions() {
-  width = window.innerWidth * 0.8 - margin.left - margin.right;
-  height = Math.max(window.innerHeight * 0.6 - margin.top - margin.bottom, 400);
+  width = window.innerWidth * 0.55 - margin.left - margin.right;
+  height = Math.max(window.innerHeight * 0.65 - margin.top - margin.bottom, 400);
 
   d3.select("svg")
     .attr("width", width + margin.left + margin.right)
@@ -86,7 +88,6 @@ function updateDimensions() {
   // Update brush extent.
   svg.select(".brush").call(brush.extent([[0, 0], [width, height]]).on("end", brushed));
 
-  // Redraw background and chart.
   updateBackground();
   updateChart();
 }
@@ -189,27 +190,24 @@ function computeAggregatedLine(dataArray) {
   return aggregated.map(v => v / count);
 }
 
-// Returns the data to display based on the current expanded/collapsed state.
+// Returns the data to display based on the expanded state and filters.
 function getChartData() {
   let chartData = [];
   const maleData = allTempData.filter(d => d.gender === "male");
   const femaleEstrusData = allTempData.filter(d => d.gender === "female" && d.type === "estrus");
   const femaleNonEstrusData = allTempData.filter(d => d.gender === "female" && d.type === "non-estrus");
 
-  if (!expandedGroups.male) {
-    chartData.push(aggregatedMale);
-  } else {
-    chartData.push(...maleData);
+  if (selectedFilters.male) {
+    if (!expandedGroups.male) chartData.push(aggregatedMale);
+    else chartData.push(...maleData);
   }
-  if (!expandedGroups.estrus) {
-    chartData.push(aggregatedFemaleEstrus);
-  } else {
-    chartData.push(...femaleEstrusData);
+  if (selectedFilters.estrus) {
+    if (!expandedGroups.estrus) chartData.push(aggregatedFemaleEstrus);
+    else chartData.push(...femaleEstrusData);
   }
-  if (!expandedGroups["non-estrus"]) {
-    chartData.push(aggregatedFemaleNonEstrus);
-  } else {
-    chartData.push(...femaleNonEstrusData);
+  if (selectedFilters["non-estrus"]) {
+    if (!expandedGroups["non-estrus"]) chartData.push(aggregatedFemaleNonEstrus);
+    else chartData.push(...femaleNonEstrusData);
   }
   return chartData;
 }
@@ -222,7 +220,6 @@ function initializeChart() {
     .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-  // Add clipPath for containment.
   svg.append("defs")
     .append("clipPath")
       .attr("id", "clip")
@@ -234,6 +231,7 @@ function initializeChart() {
     .domain([new Date(2023, 0, 1, 0, 0), new Date(2023, 0, 1, 23, 59)])
     .range([0, width]);
 
+  // Set y-scale to show the entire global data range with a little padding.
   yScale = d3.scaleLinear()
     .domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02])
     .range([height, 0]);
@@ -245,14 +243,12 @@ function initializeChart() {
     .domain(originalXDomain)
     .range([0, width]);
 
-  // Background rectangle for "lights off".
   svg.append("rect")
     .attr("class", "background")
     .attr("y", 0)
     .attr("height", height)
     .attr("fill", LIGHTS_OFF_COLOR);
 
-  // Add labels for light conditions.
   svg.append("text")
     .attr("class", "lightOnLabel")
     .attr("x", constantXScale(new Date(2023, 0, 1, 6, 0)))
@@ -269,7 +265,6 @@ function initializeChart() {
     .attr("fill", "#333")
     .style("font-size", "16px");
 
-  // X-axis title.
   svg.append("text")
     .attr("class", "x-axis-label")
     .attr("x", width / 2)
@@ -279,7 +274,6 @@ function initializeChart() {
     .style("fill", "#333")
     .text("Time of Day");
 
-  // Draw axes.
   xAxis = svg.append("g")
     .attr("transform", `translate(0,${height})`)
     .call(d3.axisBottom(xScale)
@@ -297,41 +291,6 @@ function initializeChart() {
     .attr("x", -height / 2)
     .style("text-anchor", "middle")
     .text("Temperature (°C)");
-
-  // Legend for light conditions (positioned inside the chart for reference).
-  const legend = svg.append("g")
-    .attr("class", "legend")
-    .attr("transform", `translate(${width - 120}, 10)`);
-
-  legend.append("rect")
-    .attr("x", 0)
-    .attr("y", 0)
-    .attr("width", 20)
-    .attr("height", 20)
-    .attr("fill", "white")
-    .attr("stroke", "black");
-
-  legend.append("text")
-    .attr("x", 25)
-    .attr("y", 15)
-    .style("font-size", "12px")
-    .attr("fill", "#333")
-    .text("Light On");
-
-  legend.append("rect")
-    .attr("x", 0)
-    .attr("y", 25)
-    .attr("width", 20)
-    .attr("height", 20)
-    .attr("fill", LIGHTS_OFF_COLOR)
-    .attr("stroke", "black");
-
-  legend.append("text")
-    .attr("x", 25)
-    .attr("y", 40)
-    .style("font-size", "12px")
-    .attr("fill", "#333")
-    .text("Light Off");
 
   // Add a brush along the x-axis.
   brush = d3.brushX()
@@ -381,8 +340,8 @@ function updateXAxis() {
     const oneHour = 60 * 60 * 1000;
     const sixHours = 6 * oneHour;
     const tenMinutes = 10 * 60 * 1000;
-
     const domainDuration = currentDomain[1] - currentDomain[0];
+
     if (domainDuration > sixHours) {
       tickInterval = d3.timeHour.every(1);
       tickFormat = d3.timeFormat("%-I %p");
@@ -408,11 +367,8 @@ function updateXAxis() {
 function updateChart() {
   const chartData = getChartData();
 
-  // Recompute y-scale domain based on displayed data.
-  let allValues = chartData.flatMap(d => d.data);
-  const yMin = d3.min(allValues);
-  const yMax = d3.max(allValues);
-  yScale.domain([yMin * 0.98, yMax * 1.02]);
+  // Always use the full global y-domain with padding.
+  yScale.domain([globalYDomain[0] * 0.98, globalYDomain[1] * 1.02]);
   yAxis.transition().duration(250).call(d3.axisLeft(yScale));
   updateXAxis();
   updateBackground();
@@ -431,18 +387,20 @@ function updateChart() {
       .attr("clip-path", "url(#clip)")
       .attr("fill", "none")
       .attr("stroke-width", 1.5)
-      .attr("opacity", 0.7)
+      // For individual (non-avg) lines, start with 0 opacity to animate fade-in.
+      .attr("opacity", d => d.id.includes("avg") ? 0.7 : 0)
       .on("mouseover", showTooltip)
       .on("mousemove", moveTooltip)
       .on("mouseout", hideTooltip)
       .on("click", lineClicked)
     .merge(lines)
-    .transition().duration(250)
-    .attr("d", d => lineGenerator(d.data))
-    .attr("stroke", d => {
-      if (d.gender === "male") return "#3690c0";
-      return d.type === "estrus" ? "#ff0000" : "#ffa500";
-    });
+    .transition().duration(d => d.id.includes("avg") ? 250 : 600)
+      .attr("d", d => lineGenerator(d.data))
+      .attr("stroke", d => {
+        if (d.gender === "male") return "#3690c0";
+        return d.type === "estrus" ? "#ff0000" : "#ffa500";
+      })
+      .attr("opacity", 0.7);
 
   lines.exit().remove(); 
 }
@@ -453,24 +411,7 @@ function brushed(event) {
   const newXDomain = [xScale.invert(x0), xScale.invert(x1)];
   xScale.domain(newXDomain);
 
-  const startIndex = Math.max(0, Math.floor((newXDomain[0] - new Date(2023, 0, 1)) / 60000));
-  const endIndex = Math.min(1439, Math.ceil((newXDomain[1] - new Date(2023, 0, 1)) / 60000));
-
-  const chartData = getChartData();
-  let yMin = Infinity, yMax = -Infinity;
-  chartData.forEach(d => {
-    const subData = d.data.slice(startIndex, endIndex + 1);
-    const localMin = d3.min(subData);
-    const localMax = d3.max(subData);
-    if (localMin < yMin) yMin = localMin;
-    if (localMax > yMax) yMax = localMax;
-  });
-  if (yMin === Infinity || yMax === -Infinity) {
-    yMin = globalYDomain[0];
-    yMax = globalYDomain[1];
-  }
-  yScale.domain([yMin * 0.98, yMax * 1.02]);
-
+  // Keep the y-axis fixed.
   updateXAxis();
   yAxis.transition().duration(500).call(d3.axisLeft(yScale));
   updateBackground();
@@ -509,9 +450,10 @@ function showTooltip(event, mouse) {
     .filter(d => d.id === hoveredId)
     .attr("opacity", 1)
     .attr("stroke-width", 2.5);
+  // Make non-hovered lines only slightly dim (opacity 0.5)
   d3.selectAll(".mouse-line")
     .filter(d => d.id !== hoveredId)
-    .attr("opacity", 0.1);
+    .attr("opacity", 0.5);
   tooltip.style("opacity", 1)
     .html(`
       <strong>${mouse.id}</strong><br>
@@ -544,6 +486,20 @@ function lineClicked(event, d) {
 document.addEventListener("DOMContentLoaded", () => {
   loadData();
   d3.select("#resetBrush").on("click", resetBrush);
+
+  // Legend checkbox event listeners.
+  d3.select("#maleCheckbox").on("change", function() {
+    selectedFilters.male = this.checked;
+    updateChart();
+  });
+  d3.select("#estrusCheckbox").on("change", function() {
+    selectedFilters.estrus = this.checked;
+    updateChart();
+  });
+  d3.select("#nonEstrusCheckbox").on("change", function() {
+    selectedFilters["non-estrus"] = this.checked;
+    updateChart();
+  });
 });
 
 // Resize the chart when the window resizes.

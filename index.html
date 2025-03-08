@@ -15,22 +15,25 @@
     <div id="chart-container"></div>
     <!-- Sidebar container -->
     <div class="sidebar">
-      <!-- Legend (static, no checkboxes) -->
+      <!-- Legend with checkboxes -->
       <div class="legend">
-        <div class="legend-item">
+        <label class="legend-item">
+          <input type="checkbox" id="maleCheckbox" checked>
           <span class="legend-color" style="background-color: #3690c0;"></span>
           Males
-        </div>
-        <div class="legend-item">
+        </label>
+        <label class="legend-item">
+          <input type="checkbox" id="nonEstrusCheckbox" checked>
           <span class="legend-color" style="background-color: #ffa500;"></span>
           Females (Non-Estrus)
-        </div>
-        <div class="legend-item">
+        </label>
+        <label class="legend-item">
+          <input type="checkbox" id="estrusCheckbox" checked>
           <span class="legend-color" style="background-color: #ff0000;"></span>
           Females (Estrus)
-        </div>
+        </label>
       </div>
-      <!-- Reset button underneath the legend -->
+      <!-- Reset button -->
       <div class="reset-container">
         <button id="resetBrush">Reset Scope</button>
       </div>
@@ -42,4 +45,3 @@
   <script type="module" src="main.js"></script>
 </body>
 </html>
-

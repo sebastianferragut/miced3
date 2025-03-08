@@ -4,6 +4,7 @@ html, body {
   width: 100%;
   height: 100%;
   font-family: Arial, sans-serif;
+  overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 
 h1 {
@@ -21,7 +22,6 @@ h2 {
   margin-bottom: 10px;
 }
 
-/* Styling for paragraphs */
 p {
   margin-left: 10px;
   margin-right: 300px;
@@ -34,7 +34,7 @@ p {
   text-decoration: underline;
 }
 
-/* Container for chart and sidebar (legend and reset button) side by side */
+/* Container for chart and sidebar */
 .chart-legend-container {
   display: flex;
   flex-direction: row;
@@ -47,8 +47,8 @@ p {
 
 /* Chart container styles */
 #chart-container {
-  flex: 1;
-  height: 60vh;
+  width: calc(100% - 250px); /* Leave space for sidebar */
+  height: 65vh; /* Increased vertical length */
   position: relative;
   background: transparent;
   border-radius: 10px;
@@ -59,15 +59,16 @@ p {
 
 /* Sidebar container for legend and reset button */
 .sidebar {
+  width: 230px;
   display: flex;
   flex-direction: column;
   gap: 20px;
   align-items: flex-start;
 }
 
-/* Legend styling */
+/* Legend styling with checkboxes */
 .legend {
-  max-width: 200px;
+  width: 100%;
   padding: 10px;
   border: 1px solid #ccc;
   background: #f8f8f8;
@@ -93,6 +94,7 @@ p {
 /* Reset button container */
 .reset-container {
   text-align: center;
+  width: 100%;
 }
 
 /* Reset button styles */
@@ -110,7 +112,7 @@ p {
   background-color: darkgrey;
 }
 
-/* Tooltip with fully opaque background */
+/* Tooltip */
 #tooltip {
   position: absolute;
   padding: 10px;
